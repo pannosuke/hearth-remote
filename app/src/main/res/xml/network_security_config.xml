@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+    <!-- Allow self-signed certs for Android TV Remote protocol -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="false">192.168.10.105</domain>
+        <trust-anchors>
+            <certificates src="user" />
+        </trust-anchors>
+    </domain-config>
+</network-security-config>

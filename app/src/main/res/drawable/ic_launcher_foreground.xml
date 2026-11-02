@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group android:scaleX="0.5"
+        android:scaleY="0.5"
+        android:translateX="27"
+        android:translateY="27">
+        <!-- Hearth flame icon -->
+        <path
+            android:fillColor="#FFC107"
+            android:pathData="M54,10C54,10 30,35 30,60C30,75 40,90 54,90C68,90 78,75 78,60C78,35 54,10 54,10ZM54,80C47,80 42,73 42,65C42,50 54,30 54,30C54,30 66,50 66,65C66,73 61,80 54,80Z"/>
+        <!-- Remote lines -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.8"
+            android:pathData="M48,55L60,55L60,58L48,58Z"/>
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.8"
+            android:pathData="M48,62L60,62L60,65L48,65Z"/>
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.8"
+            android:pathData="M52,48L56,48L56,52L52,52Z"/>
+    </group>
+</vector>

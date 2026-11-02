@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark theme colors (Apple TV-like) -->
+    <color name="background_dark">#FF121212</color>
+    <color name="surface_dark">#FF1E1E1E</color>
+    <color name="surface_variant">#FF2D2D2D</color>
+    
+    <!-- Amber accent (Hearth brand) -->
+    <color name="amber_500">#FFFFC107</color>
+    <color name="amber_700">#FFFFA000</color>
+    <color name="amber_glow">#40FFC107</color>
+    
+    <!-- Text -->
+    <color name="text_primary">#FFFFFFFF</color>
+    <color name="text_secondary">#B3FFFFFF</color>
+    <color name="text_disabled">#61FFFFFF</color>
+    
+    <!-- Status -->
+    <color name="status_connected">#FF4CAF50</color>
+    <color name="status_disconnected">#FFF44336</color>
+    <color name="status_connecting">#FFFFC107</color>
+</resources>

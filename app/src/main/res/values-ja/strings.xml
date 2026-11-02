@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Hearth リモコン</string>
+    
+    <!-- Setup -->
+    <string name="setup_title">テレビに接続</string>
+    <string name="setup_ip_label">テレビのIPアドレス</string>
+    <string name="setup_ip_hint">192.168.10.105</string>
+    <string name="setup_connect">接続</string>
+    <string name="setup_connecting">接続中…</string>
+    <string name="setup_pairing">ペアリング中…</string>
+    <string name="setup_paired">ペアリング完了</string>
+    <string name="setup_error">接続に失敗しました</string>
+    
+    <!-- Pairing -->
+    <string name="pairing_title">ペアリングコードを入力</string>
+    <string name="pairing_instructions">テレビに表示されているコードを入力してください</string>
+    <string name="pairing_submit">ペアリング</string>
+    <string name="pairing_cancel">キャンセル</string>
+    <string name="pairing_error">コードが正しくありません。もう一度お試しください</string>
+    
+    <!-- Remote -->
+    <string name="remote_disconnected">切断</string>
+    <string name="remote_reconnecting">再接続中…</string>
+    <string name="remote_connected">接続済み</string>
+    
+    <!-- Navigation -->
+    <string name="nav_trackpad">トラックパッド</string>
+    <string name="nav_dpad">十字キー</string>
+    <string name="nav_apps">アプリ</string>
+    <string name="nav_settings">設定</string>
+    
+    <!-- Buttons -->
+    <string name="btn_ok">決定</string>
+    <string name="btn_back">戻る</string>
+    <string name="btn_home">ホーム</string>
+    <string name="btn_menu">メニュー</string>
+    <string name="btn_power">電源</string>
+    <string name="btn_play_pause">再生/一時停止</string>
+    <string name="btn_volume_up">音量を上げる</string>
+    <string name="btn_volume_down">音量を下げる</string>
+    <string name="btn_volume_mute">ミュート</string>
+    <string name="btn_channel_up">チャンネル+</string>
+    <string name="btn_channel_down">チャンネル-</string>
+    
+    <!-- Apps -->
+    <string name="apps_title">アプリを起動</string>
+    <string name="app_youtube">YouTube</string>
+    <string name="app_netflix">Netflix</string>
+    <string name="app_disney">Disney+</string>
+    <string name="app_amazon">Prime Video</string>
+    
+    <!-- Settings -->
+    <string name="settings_title">設定</string>
+    <string name="settings_tv_address">テレビのアドレス</string>
+    <string name="settings_forget_pairing">ペアリングを解除</string>
+    <string name="settings_about">このアプリについて</string>
+    <string name="settings_version">バージョン %s</string>
+    
+    <!-- Accessibility -->
+    <string name="a11y_trackpad">トラックパッドエリア。スワイプで移動、タップで選択</string>
+    <string name="a11y_dpad_up">上に移動</string>
+    <string name="a11y_dpad_down">下に移動</string>
+    <string name="a11y_dpad_left">左に移動</string>
+    <string name="a11y_dpad_right">右に移動</string>
+</resources>

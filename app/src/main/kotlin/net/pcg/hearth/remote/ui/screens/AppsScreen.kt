@@ -1,0 +1,141 @@
+package net.pcg.hearth.remote.ui.screens
+
+import android.view.HapticFeedbackConstants
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import net.pcg.hearth.remote.R
+import net.pcg.hearth.remote.protocol.TvConnection
+
+data class AppItem(
+    val name: String,
+    val icon: ImageVector,
+    val color: Color,
+    val onLaunch: (TvConnection) -> Unit
+)
+
+private val apps = listOf(
+    AppItem(
+        name = "YouTube",
+        icon = Icons.Default.PlayCircle,
+        color = Color(0xFFFF0000),
+        onLaunch = { it.launchYouTube() }
+    ),
+    AppItem(
+        name = "Netflix",
+        icon = Icons.Default.Tv,
+        color = Color(0xFFE50914),
+        onLaunch = { it.launchNetflix() }
+    ),
+    AppItem(
+        name = "Disney+",
+        icon = Icons.Default.Movie,
+        color = Color(0xFF113CCF),
+        onLaunch = { it.launchDisneyPlus() }
+    ),
+    AppItem(
+        name = "Prime Video",
+        icon = Icons.Default.VideoLibrary,
+        color = Color(0xFF00A8E1),
+        onLaunch = { it.launchAmazonVideo() }
+    )
+)
+
+@Composable
+fun AppsScreen(
+    tvConnection: TvConnection
+) {
+    val view = LocalView.current
+    
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Text(
+            text = stringResource(R.string.apps_title),
+            style = MaterialTheme.typography.headlineSmall
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(apps) { app ->
+                AppCard(
+                    app = app,
+                    onClick = {
+                        view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                        app.onLaunch(tvConnection)
+                    }
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Text(
+            text = "Deep Links",
+            style = MaterialTheme.typography.titleMedium
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text(
+            text = "Tap and hold an app button to enter a custom deep link URL.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+fun AppCard(
+    app: AppItem,
+    onClick: () -> Unit
+) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(100.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = app.icon,
+                contentDescription = app.name,
+                tint = app.color,
+                modifier = Modifier.size(36.dp)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = app.name,
+                style = MaterialTheme.typography.labelLarge
+            )
+        }
+    }
+}

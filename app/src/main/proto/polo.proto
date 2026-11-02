@@ -1,0 +1,83 @@
+// Android TV Remote Protocol v2 - Pairing Protocol (Polo)
+// Based on https://android.googlesource.com/platform/external/google-tv-pairing-protocol
+
+syntax = "proto3";
+
+package polo;
+option java_package = "net.pcg.hearth.remote.proto";
+option java_outer_classname = "PoloProto";
+
+message OuterMessage {
+    enum MessageType {
+        MESSAGE_TYPE_UNKNOWN = 0;
+        MESSAGE_TYPE_PAIRING_REQUEST = 10;
+        MESSAGE_TYPE_PAIRING_REQUEST_ACK = 11;
+        MESSAGE_TYPE_OPTIONS = 20;
+        MESSAGE_TYPE_CONFIGURATION = 30;
+        MESSAGE_TYPE_CONFIGURATION_ACK = 31;
+        MESSAGE_TYPE_SECRET = 40;
+        MESSAGE_TYPE_SECRET_ACK = 41;
+    }
+
+    enum Status {
+        STATUS_UNKNOWN = 0;
+        STATUS_OK = 200;
+        STATUS_ERROR = 400;
+        STATUS_BAD_CONFIGURATION = 401;
+        STATUS_BAD_SECRET = 402;
+    }
+
+    uint32 protocol_version = 1;
+    Status status = 2;
+    MessageType type = 3;
+    bytes payload = 4;
+}
+
+message PairingRequest {
+    string service_name = 1;
+    string client_name = 2;
+}
+
+message PairingRequestAck {
+    string server_name = 1;
+}
+
+message Options {
+    message Encoding {
+        enum EncodingType {
+            ENCODING_TYPE_UNKNOWN = 0;
+            ENCODING_TYPE_ALPHANUMERIC = 1;
+            ENCODING_TYPE_NUMERIC = 2;
+            ENCODING_TYPE_HEXADECIMAL = 3;
+            ENCODING_TYPE_QRCODE = 4;
+        }
+
+        EncodingType type = 1;
+        uint32 symbol_length = 2;
+    }
+
+    enum RoleType {
+        ROLE_TYPE_UNKNOWN = 0;
+        ROLE_TYPE_INPUT = 1;
+        ROLE_TYPE_OUTPUT = 2;
+    }
+
+    repeated Encoding input_encodings = 1;
+    repeated Encoding output_encodings = 2;
+    RoleType preferred_role = 3;
+}
+
+message Configuration {
+    Options.Encoding encoding = 1;
+    Options.RoleType client_role = 2;
+}
+
+message ConfigurationAck {}
+
+message Secret {
+    bytes secret = 1;
+}
+
+message SecretAck {
+    bytes secret = 1;
+}

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Hearth Remote</string>
+    
+    <!-- Setup -->
+    <string name="setup_title">Connect to TV</string>
+    <string name="setup_ip_label">TV IP Address</string>
+    <string name="setup_ip_hint">192.168.10.105</string>
+    <string name="setup_connect">Connect</string>
+    <string name="setup_connecting">Connecting…</string>
+    <string name="setup_pairing">Pairing…</string>
+    <string name="setup_paired">Paired successfully</string>
+    <string name="setup_error">Connection failed</string>
+    
+    <!-- Pairing -->
+    <string name="pairing_title">Enter Pairing Code</string>
+    <string name="pairing_instructions">Enter the code shown on your TV</string>
+    <string name="pairing_submit">Pair</string>
+    <string name="pairing_cancel">Cancel</string>
+    <string name="pairing_error">Invalid code, please try again</string>
+    
+    <!-- Remote -->
+    <string name="remote_disconnected">Disconnected</string>
+    <string name="remote_reconnecting">Reconnecting…</string>
+    <string name="remote_connected">Connected</string>
+    
+    <!-- Navigation -->
+    <string name="nav_trackpad">Trackpad</string>
+    <string name="nav_dpad">D-Pad</string>
+    <string name="nav_apps">Apps</string>
+    <string name="nav_settings">Settings</string>
+    
+    <!-- Buttons -->
+    <string name="btn_ok">OK</string>
+    <string name="btn_back">Back</string>
+    <string name="btn_home">Home</string>
+    <string name="btn_menu">Menu</string>
+    <string name="btn_power">Power</string>
+    <string name="btn_play_pause">Play/Pause</string>
+    <string name="btn_volume_up">Volume Up</string>
+    <string name="btn_volume_down">Volume Down</string>
+    <string name="btn_volume_mute">Mute</string>
+    <string name="btn_channel_up">Channel Up</string>
+    <string name="btn_channel_down">Channel Down</string>
+    
+    <!-- Apps -->
+    <string name="apps_title">Launch App</string>
+    <string name="app_youtube">YouTube</string>
+    <string name="app_netflix">Netflix</string>
+    <string name="app_disney">Disney+</string>
+    <string name="app_amazon">Prime Video</string>
+    
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_tv_address">TV Address</string>
+    <string name="settings_forget_pairing">Forget Pairing</string>
+    <string name="settings_about">About</string>
+    <string name="settings_version">Version %s</string>
+    
+    <!-- Accessibility -->
+    <string name="a11y_trackpad">Trackpad area. Swipe to navigate, tap to select.</string>
+    <string name="a11y_dpad_up">Navigate up</string>
+    <string name="a11y_dpad_down">Navigate down</string>
+    <string name="a11y_dpad_left">Navigate left</string>
+    <string name="a11y_dpad_right">Navigate right</string>
+</resources>

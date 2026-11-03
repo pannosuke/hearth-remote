@@ -47,12 +47,33 @@ class ForegroundTest {
     }
 
     @Test
-    fun `TB10 is button 10`() {
+    fun `TB10 is button 10 and the busy sentence is not a title`() {
         assertEquals(10, OsakaChannels.buttonNumber("TB10"))
-        assertEquals("YTV", OsakaChannels.find(10)?.name)
+        assertEquals("YTV", OsakaChannels.stationName("TB10"))
+        assertEquals("TB10", OsakaChannels.channelReading("TB10"))
         assertEquals(8, OsakaChannels.buttonNumber("TB8"))
         assertNull(OsakaChannels.buttonNumber("BS1"))
+        assertEquals("BS1", OsakaChannels.channelReading("BS1"))
         assertEquals("12", OsakaChannels.find(12)?.name)
+        assertNull(OsakaChannels.channelReading("Service Busy. Connection Closed."))
+        assertNull(OsakaChannels.stationName("Service Busy. Connection Closed."))
+        assertNull(OsakaChannels.channelReading("ERR"))
+    }
+
+    @Test
+    fun `subtitle macro defaults to one key and can be a sequence`() {
+        assertEquals(listOf(MacroStep("IRCO", "0267")), SubtitleMacro.parse(null))
+        assertEquals(listOf(MacroStep("IRCO", "0267")), SubtitleMacro.parse(""))
+        assertEquals(listOf(MacroStep("IRCO", "0267")), SubtitleMacro.parse("IRCO0267"))
+        assertEquals(
+            listOf(
+                MacroStep("IRCO", "0267"),
+                MacroStep("WAIT", "400"),
+                MacroStep("IRCO", "01E4")
+            ),
+            SubtitleMacro.parse("IRCO 0267\nWAIT 400\nIRCO 01E4")
+        )
+        assertEquals(listOf(MacroStep("IRCO", "0267")), SubtitleMacro.parse("not a macro"))
     }
 
     @Test

@@ -44,6 +44,24 @@ internal object OsakaChannels {
         return chrc.removePrefix("TB").toIntOrNull()
     }
 
+    /**
+     * A CHRC reading such as TB10. The busy sentence the TV sends when a
+     * second IP session connects is not a channel and must not be shown.
+     */
+    fun channelReading(raw: String?): String? {
+        val value = raw?.trim() ?: return null
+        if (value.length !in 1..8) return null
+        if (value.any { it.isWhitespace() || it == '.' }) return null
+        if (value.equals("ERR", ignoreCase = true) || value.equals("OK", ignoreCase = true)) return null
+        if (SharpIpCommands.isServiceBusy(value)) return null
+        return value
+    }
+
+    fun stationName(chrc: String?): String? {
+        val button = buttonNumber(channelReading(chrc)) ?: return null
+        return find(button)?.name
+    }
+
     fun find(button: Int): TerrestrialChannel? = buttons.find { it.button == button }
 
     fun chrcCommand(button: Int): String = button.toString()

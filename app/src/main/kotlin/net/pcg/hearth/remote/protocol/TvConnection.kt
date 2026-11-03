@@ -225,10 +225,15 @@ class TvConnection(private val context: Context) {
     suspend fun refreshTuner() {
         try {
             sharpIp.exclusive { send ->
+                val previous = _tunerStatus.value
                 val volume = send("VOLM", "????").toIntOrNull()
                 val mute = send("MUTE", "????").toIntOrNull()
-                val channel = send("CHRC", "????").takeUnless { it.isEmpty() || it == "ERR" }
-                _tunerStatus.value = TunerStatus(volume, mute, channel)
+                val channel = OsakaChannels.channelReading(send("CHRC", "????"))
+                _tunerStatus.value = TunerStatus(
+                    volume = volume ?: previous.volume,
+                    mute = mute ?: previous.mute,
+                    channel = channel ?: previous.channel
+                )
             }
         } catch (e: Exception) {
             Log.w(TAG, "Tuner refresh failed: ${e.message}")
@@ -281,7 +286,7 @@ class TvConnection(private val context: Context) {
             try {
                 sharpIp.exclusive { send ->
                     send(if (up) "CHUP" else "CHDW", "")
-                    val channel = send("CHRC", "????").takeUnless { it.isEmpty() || it == "ERR" }
+                    val channel = OsakaChannels.channelReading(send("CHRC", "????"))
                     if (channel != null) {
                         _tunerStatus.value = _tunerStatus.value.copy(channel = channel)
                     }
@@ -298,7 +303,7 @@ class TvConnection(private val context: Context) {
             try {
                 sharpIp.exclusive { send ->
                     send("CHRC", OsakaChannels.chrcCommand(button))
-                    val channel = send("CHRC", "????").takeUnless { it.isEmpty() || it == "ERR" }
+                    val channel = OsakaChannels.channelReading(send("CHRC", "????"))
                     _tunerStatus.value = _tunerStatus.value.copy(channel = channel ?: "TB$button")
                 }
             } catch (e: Exception) {
@@ -310,8 +315,20 @@ class TvConnection(private val context: Context) {
 
     fun toggleSubtitles() {
         ioScope.launch {
-            val ok = sharpIp.tryCommand("IRCO", SharpIpCommands.SUBTITLE)
-            if (!ok) {
+            val steps = SubtitleMacro.parse(settingsRepository.getSubtitleMacro())
+            try {
+                sharpIp.exclusive { send ->
+                    for (step in steps) {
+                        if (step.command == "WAIT") {
+                            delay(step.param.toLong())
+                        } else {
+                            val reply = send(step.command, step.param)
+                            if (reply == "ERR") throw java.io.IOException("ERR")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Subtitle macro failed: ${e.message}")
                 remoteProtocol.reportError(context.getString(R.string.ip_control_failed))
             }
         }

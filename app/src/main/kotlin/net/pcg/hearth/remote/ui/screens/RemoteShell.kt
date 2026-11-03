@@ -60,7 +60,8 @@ fun RemoteShell(tvConnection: TvConnection) {
 private fun TerrestrialScreen(tvConnection: TvConnection) {
     val tuner by tvConnection.tunerStatus.collectAsState()
     val view = LocalView.current
-    val currentButton = OsakaChannels.buttonNumber(tuner.channel)
+    val code = OsakaChannels.channelReading(tuner.channel)
+    val currentButton = OsakaChannels.buttonNumber(code)
     val station = currentButton?.let { OsakaChannels.find(it) }
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -70,16 +71,18 @@ private fun TerrestrialScreen(tvConnection: TvConnection) {
             color = MaterialTheme.colorScheme.primary
         )
         Text(
-            text = station?.let { channelName(it) } ?: (tuner.channel ?: "—"),
+            text = station?.let { channelName(it) } ?: code ?: stringResource(R.string.channel_unknown),
             style = MaterialTheme.typography.headlineLarge,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-        Text(
-            text = tuner.channel ?: stringResource(R.string.channel_unknown),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        if (code != null) {
+            Text(
+                text = code,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 

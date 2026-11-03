@@ -21,12 +21,12 @@ class RemoteAppLinkTest {
     }
 
     @Test
-    fun `configure response intersects the device code and omits model and vendor`() {
+    fun `configure response intersects the device code and names this remote`() {
         val message = RemoteMessages.configureResponse(639)
         assertEquals(615, message.remoteConfigure.code1)
         val info = message.remoteConfigure.deviceInfo
-        assertEquals("", info.model)
-        assertEquals("", info.vendor)
+        assertEquals("Hearth Remote", info.model)
+        assertEquals("pannosuke", info.vendor)
         assertEquals(1, info.unknown1)
         assertEquals("1", info.unknown2)
         assertEquals("atvremote", info.packageName)

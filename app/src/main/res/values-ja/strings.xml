@@ -79,6 +79,8 @@
     <string name="settings_tv_address">テレビのアドレス</string>
     <string name="settings_connection_log">接続ログ</string>
     <string name="settings_forget_pairing">ペアリングを解除</string>
+    <string name="settings_subtitle_macro">字幕マクロ</string>
+    <string name="settings_subtitle_macro_hint">1行に1ステップ。IRCO 0267 はキー1つ。WAIT 400 は待ち。字幕ボタンがこの順番を送ります。</string>
     <string name="session_log_title">接続ログ</string>
     <string name="session_log_empty">まだメッセージがありません</string>
     <string name="session_log_close_reason">切断理由: %1$s</string>

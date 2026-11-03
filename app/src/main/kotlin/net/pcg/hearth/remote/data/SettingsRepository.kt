@@ -1,12 +1,14 @@
 package net.pcg.hearth.remote.data
 
 import android.content.Context
+import net.pcg.hearth.remote.protocol.SubtitleMacro
 
 class SettingsRepository(context: Context) {
     
     companion object {
         private const val PREFS_NAME = "hearth_remote_settings"
         private const val KEY_TV_HOST = "tv_host"
+        private const val KEY_SUBTITLE_MACRO = "subtitle_macro"
         private const val DEFAULT_TV_HOST = "192.168.10.105"
     }
     
@@ -23,4 +25,12 @@ class SettingsRepository(context: Context) {
     }
     
     fun getDefaultTvHost(): String = DEFAULT_TV_HOST
+
+    fun getSubtitleMacro(): String {
+        return prefs.getString(KEY_SUBTITLE_MACRO, null) ?: SubtitleMacro.DEFAULT
+    }
+
+    fun setSubtitleMacro(value: String) {
+        prefs.edit().putString(KEY_SUBTITLE_MACRO, value).apply()
+    }
 }

@@ -30,12 +30,17 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import net.pcg.hearth.remote.R
 import net.pcg.hearth.remote.protocol.Foreground
+import net.pcg.hearth.remote.protocol.GuideState
+import net.pcg.hearth.remote.protocol.GuideStatus
+import net.pcg.hearth.remote.protocol.NowAndNext
 import net.pcg.hearth.remote.protocol.OsakaChannels
+import net.pcg.hearth.remote.protocol.OsakaGuide
 import net.pcg.hearth.remote.protocol.TerrestrialChannel
 import net.pcg.hearth.remote.protocol.TvConnection
+import net.pcg.hearth.remote.protocol.XmltvGuide
 
 @Composable
-fun RemoteShell(tvConnection: TvConnection) {
+internal fun RemoteShell(tvConnection: TvConnection, guide: OsakaGuide) {
     val packageName by tvConnection.currentAppPackage.collectAsState()
     val tuner by tvConnection.tunerStatus.collectAsState()
     val terrestrial = Foreground.isTerrestrial(packageName, tuner.channel)
@@ -50,19 +55,27 @@ fun RemoteShell(tvConnection: TvConnection) {
     }
 
     if (terrestrial) {
-        TerrestrialScreen(tvConnection)
+        TerrestrialScreen(tvConnection, guide)
     } else {
         GenericRemoteScreen(tvConnection, packageName)
     }
 }
 
 @Composable
-private fun TerrestrialScreen(tvConnection: TvConnection) {
+private fun TerrestrialScreen(tvConnection: TvConnection, guide: OsakaGuide) {
     val tuner by tvConnection.tunerStatus.collectAsState()
+    val guideState by guide.state.collectAsState()
     val view = LocalView.current
     val code = OsakaChannels.channelReading(tuner.channel)
     val currentButton = OsakaChannels.buttonNumber(code)
     val station = currentButton?.let { OsakaChannels.find(it) }
+    var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (isActive) {
+            nowMs = System.currentTimeMillis()
+            delay(15_000)
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp)) {
         Text(
@@ -81,6 +94,15 @@ private fun TerrestrialScreen(tvConnection: TvConnection) {
                 text = code,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        if (currentButton != null) {
+            ProgrammeBlock(
+                channel = station,
+                slot = guide.nowAndNext(currentButton, nowMs),
+                guideState = guideState,
+                nowMs = nowMs,
+                prominent = true
             )
         }
 
@@ -197,6 +219,9 @@ private fun TerrestrialScreen(tvConnection: TvConnection) {
                 ChannelCard(
                     channel = channel,
                     selected = channel.button == currentButton,
+                    slot = guide.nowAndNext(channel.button, nowMs),
+                    guideState = guideState,
+                    nowMs = nowMs,
                     onClick = {
                         view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                         tvConnection.selectChannel(channel.button)
@@ -211,6 +236,9 @@ private fun TerrestrialScreen(tvConnection: TvConnection) {
 private fun ChannelCard(
     channel: TerrestrialChannel,
     selected: Boolean,
+    slot: NowAndNext,
+    guideState: GuideState,
+    nowMs: Long,
     onClick: () -> Unit
 ) {
     Card(
@@ -228,26 +256,108 @@ private fun ChannelCard(
                 MaterialTheme.colorScheme.onSurface
             }
         ),
-        modifier = Modifier.fillMaxWidth().height(112.dp)
+        modifier = Modifier.fillMaxWidth().heightIn(min = 168.dp)
     ) {
-        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
             Text(channelName(channel), style = MaterialTheme.typography.titleLarge, maxLines = 1)
             Text(
                 text = stringResource(R.string.channel_button, channel.button),
                 style = MaterialTheme.typography.labelLarge
             )
-            Spacer(Modifier.weight(1f))
-            Text(
-                text = stringResource(R.string.now_playing_placeholder),
-                style = MaterialTheme.typography.bodySmall,
-                color = if (selected) {
-                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                maxLines = 1
+            Spacer(Modifier.height(6.dp))
+            ProgrammeBlock(
+                channel = channel,
+                slot = slot,
+                guideState = guideState,
+                nowMs = nowMs,
+                prominent = false,
+                selected = selected
             )
         }
+    }
+}
+
+@Composable
+private fun ProgrammeBlock(
+    channel: TerrestrialChannel?,
+    slot: NowAndNext,
+    guideState: GuideState,
+    nowMs: Long,
+    prominent: Boolean,
+    selected: Boolean = false
+) {
+    val muted = if (selected) {
+        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val current = slot.current
+    if (current == null) {
+        Text(
+            text = missingListing(channel, guideState),
+            style = if (prominent) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodySmall,
+            color = muted,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+        val upcoming = slot.next
+        if (upcoming != null) {
+            Text(
+                text = stringResource(R.string.epg_next, upcoming.title),
+                style = MaterialTheme.typography.bodySmall,
+                color = muted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        return
+    }
+    Text(
+        text = current.title,
+        style = if (prominent) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
+        maxLines = if (prominent) 2 else 1,
+        overflow = TextOverflow.Ellipsis
+    )
+    Text(
+        text = XmltvGuide.formatRange(current.startMs, current.endMs),
+        style = MaterialTheme.typography.bodySmall,
+        color = muted,
+        maxLines = 1
+    )
+    val fraction = slot.progress(nowMs)
+    if (fraction != null) {
+        Spacer(Modifier.height(4.dp))
+        LinearProgressIndicator(
+            progress = { fraction },
+            modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
+            trackColor = if (selected) {
+                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.24f)
+            } else {
+                MaterialTheme.colorScheme.surface.copy(alpha = 0.45f)
+            }
+        )
+    }
+    val upcoming = slot.next
+    if (upcoming != null) {
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = stringResource(R.string.epg_next, upcoming.title),
+            style = MaterialTheme.typography.bodySmall,
+            color = muted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun missingListing(channel: TerrestrialChannel?, guideState: GuideState): String {
+    val hasId = channel?.epgId != null
+    return if (hasId && guideState.status == GuideStatus.Unavailable) {
+        stringResource(R.string.epg_unavailable)
+    } else {
+        stringResource(R.string.now_playing_placeholder)
     }
 }
 

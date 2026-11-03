@@ -8,14 +8,35 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import net.pcg.hearth.remote.protocol.HttpGuideFetch
+import net.pcg.hearth.remote.protocol.OsakaGuide
 import net.pcg.hearth.remote.protocol.TvConnection
 import net.pcg.hearth.remote.ui.components.VersionLabel
 import net.pcg.hearth.remote.ui.screens.*
+import java.io.File
 
 @Composable
 fun HearthRemoteApp() {
     val context = LocalContext.current
     val tvConnection = remember { TvConnection(context) }
+    val guide = remember {
+        OsakaGuide(
+            directory = File(context.filesDir, "epg"),
+            fetch = HttpGuideFetch()
+        )
+    }
+    DisposableEffect(guide) {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+        guide.start(scope)
+        onDispose {
+            guide.stop()
+            scope.cancel()
+        }
+    }
     val viewModel: MainViewModel = viewModel { MainViewModel(tvConnection) }
     
     val isPaired by viewModel.isPaired.collectAsState()
@@ -64,7 +85,7 @@ fun HearthRemoteApp() {
                         )
                         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                             when (currentScreen) {
-                                Screen.Remote -> RemoteShell(tvConnection = tvConnection)
+                                Screen.Remote -> RemoteShell(tvConnection = tvConnection, guide = guide)
                                 Screen.Trackpad -> TrackpadScreen(tvConnection = tvConnection)
                                 Screen.Apps -> AppsScreen(tvConnection = tvConnection)
                                 Screen.Settings -> SettingsScreen(

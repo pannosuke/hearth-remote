@@ -106,18 +106,6 @@ internal fun SettingsScreen(
                 color = MaterialTheme.colorScheme.primary
             )
         }
-        val jellyfinMessage = when (jellyfinState.problem) {
-            JellyfinProblem.SignInFailed -> stringResource(R.string.settings_jellyfin_failed)
-            JellyfinProblem.Unauthorized -> stringResource(R.string.settings_jellyfin_unauthorized)
-            else -> null
-        }
-        if (jellyfinMessage != null) {
-            Text(
-                text = jellyfinMessage,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium
-            )
-        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = {
@@ -141,6 +129,19 @@ internal fun SettingsScreen(
                     Text(stringResource(R.string.settings_jellyfin_sign_out))
                 }
             }
+        }
+        val jellyfinMessage = when (jellyfinState.problem) {
+            JellyfinProblem.SignInFailed -> stringResource(R.string.settings_jellyfin_failed)
+            JellyfinProblem.Unauthorized -> stringResource(R.string.settings_jellyfin_unauthorized)
+            else -> null
+        }
+        val jellyfinDetail = jellyfinState.detail?.takeIf { it.isNotBlank() }
+        if (jellyfinMessage != null || jellyfinDetail != null) {
+            Text(
+                text = listOfNotNull(jellyfinMessage, jellyfinDetail).joinToString("\n"),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))

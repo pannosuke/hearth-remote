@@ -56,7 +56,7 @@ fun TrackpadScreen(
                 contentDescription = stringResource(R.string.btn_power),
                 onClick = {
                     view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                    tvConnection.sendPower()
+                    tvConnection.togglePower()
                 },
                 tint = MaterialTheme.colorScheme.error
             )
@@ -252,6 +252,8 @@ fun TrackpadScreen(
 fun ConnectionStatus(
     connectionState: RemoteProtocol.ConnectionState,
     lastError: String? = null,
+    powerOn: Boolean? = null,
+    onTogglePower: (() -> Unit)? = null,
     onOpenLog: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -268,8 +270,23 @@ fun ConnectionStatus(
     val showLastError = !lastError.isNullOrBlank() &&
         (connectionState !is RemoteProtocol.ConnectionState.Error || connectionState.message != lastError)
 
+    val powerLabel = when (powerOn) {
+        true -> stringResource(R.string.power_on)
+        false -> stringResource(R.string.power_standby)
+        null -> stringResource(R.string.power_unknown)
+    }
+    val powerTint = when (powerOn) {
+        true -> Color(0xFF4CAF50)
+        false -> Color(0xFF9E9E9E)
+        null -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Box(modifier = modifier.fillMaxWidth()) {
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = Modifier
+            .align(Alignment.Center)
+            .padding(horizontal = 64.dp)
+            .fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Row(
@@ -303,6 +320,26 @@ fun ConnectionStatus(
         if (onOpenLog != null) {
             TextButton(onClick = onOpenLog) {
                 Text(stringResource(R.string.settings_connection_log))
+            }
+        }
+    }
+        if (onTogglePower != null) {
+            Column(
+                modifier = Modifier.align(Alignment.CenterEnd),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                IconButton(onClick = onTogglePower) {
+                    Icon(
+                        imageVector = Icons.Filled.PowerSettingsNew,
+                        contentDescription = stringResource(R.string.btn_power) + ", " + powerLabel,
+                        tint = powerTint
+                    )
+                }
+                Text(
+                    text = powerLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = powerTint
+                )
             }
         }
     }

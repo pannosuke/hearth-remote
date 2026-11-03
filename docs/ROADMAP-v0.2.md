@@ -2,7 +2,7 @@
 
 ## Sharp IP control
 
-The TV has Sharp IP control on TCP 10002, at the same address as the Android TV remote. There is no login and no greeting, so a command can be sent as soon as the socket connects. The TV allows one session at a time and closes it after 60 seconds idle. Eric is the sole user.
+The TV has Sharp IP control on TCP 10002, at the same address as the Android TV remote. There is no login and no greeting, so a command can be sent as soon as the socket connects. The TV allows one session at a time and closes it after 60 seconds idle. That idle teardown was aborting the Android TV remote session on port 6466, so the phone closes its own socket with a FIN after 15 seconds instead of waiting for the set. A power query still runs about every 20 seconds and then the socket is allowed to close. Eric is the sole user.
 
 A command is exactly 8 ASCII characters plus CR: a 4-character command and a 4-character parameter padded with spaces. The reply is `OK`, `ERR`, or a value.
 
@@ -16,6 +16,8 @@ Verified live on this set:
 | `CHRC????` | `TB10` | terrestrial, one-touch button 10 |
 
 `IRCO` plus 4 hex digits sends a remote key: subtitle `0267`, volume up `0114`, volume down `0115`, mute `0117`, channel up `0111`, channel down `0112`, digits 1–9 `024E`–`0256`, 0 `0257`, back `01E4`, home `02BB`, guide `0260`, display `011B`. `VOLM` sets the level. `CHUP` / `CHDW` step the channel. `CHRC` plus 1–12 is the one-touch button.
+
+Power uses `POWR`. `POWR????` returns `1` when the set is on and `0` in standby. `POWR0` puts it in standby. `POWR1` wakes it. `POWR1` from standby does nothing until power-on over IP is enabled. The phone sends `RSPW2` once while the set is on (command `RSPW`, parameter `2`, which allows power-on over IP from any address) and remembers that the set accepted it. The top-bar power button sends Android TV `KEYCODE_POWER` while the 6466 session is up, and uses `POWR0` / `POWR1` when that session is down.
 
 v0.2.0 phase 1 is the foreground shell, the terrestrial screen, and the generic remote. YouTube, Jellyfin, and AquoMotion are still later. v0.2.2 fills "What's on now" from the public J:COM XMLTV (dbghelp/JCOM-TV-EPG `jcom.xml`, no API key). The phone caches the eight Osaka terrestrial channels and refreshes every five minutes.
 
@@ -55,10 +57,10 @@ The phone switches remotes from `RemoteImeKeyInject` (`remote_ime_key_inject`, f
 
 ## Mechanisms, in one place
 
-- **Sharp IP control, TCP 10002.** Volume, mute, channel, one-touch buttons, and the subtitle key for the tuner. Replies include the volume, mute state, and current channel. One socket, reused inside the 60-second idle window. This is the terrestrial remote.
+- **Sharp IP control, TCP 10002.** Volume, mute, channel, power, one-touch buttons, and the subtitle key for the tuner. Replies include the volume, mute state, current channel, and power. One socket, reused for 15 seconds, then closed before the TV's 60-second teardown. `RSPW2` is sent once while the set is on so `POWR1` can wake it from standby. This is the terrestrial remote.
 - **Remote-protocol keys.** D-pad, OK, back, home, play/pause, and app links. The foreground package arrives on `RemoteImeKeyInject`. Volume level from this protocol is separate from Sharp `VOLM`.
 - **App links.** `RemoteAppLinkLaunchRequest` field 90. `https://www.youtube.com` and `https://www.youtube.com/watch?v=…` open YouTube. Other apps use `market://launch?id=<package>`. This launches an app. It does not press buttons inside it.
-- **Jellyfin API.** Sessions, Playstate, `SetSubtitleStreamIndex`, Next Up. v0.2.3 signs in with `AuthenticateByName`. The access token stays in encrypted prefs on the phone. The password is not stored.
+- **Jellyfin API.** Sessions, Playstate, `SetSubtitleStreamIndex`, Next Up. Sign-in is `POST /Users/AuthenticateByName` with `Authorization: MediaBrowser Client="Hearth Remote", Device="…", DeviceId="…", Version="…"` and JSON `Username` and `Pw`. HTTP to the typed LAN host is allowed. Each request is written to the connection log with the path, status, and error text, never the password or token. The access token stays in encrypted prefs on the phone. The password is not stored.
 - **YouTube Data API.** Needs an API key. Used only to fill Sportsnet highlight cards. Playback is still an app link.
 - **adb over the network.** Last resort for TV settings the protocol does not have: system captions if `KEYCODE_CAPTIONS` does nothing, and AquoMotion if a command even exists. Requires wireless debugging on the TV and is easy to break. Do not use it for Jellyfin subtitles or YouTube playback.
 

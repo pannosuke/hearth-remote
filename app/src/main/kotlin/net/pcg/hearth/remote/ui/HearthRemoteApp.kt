@@ -37,7 +37,9 @@ fun HearthRemoteApp() {
         JellyfinRemote(
             store = AndroidJellyfinStore(context),
             transport = HttpJellyfinTransport(),
-            version = BuildConfig.VERSION_NAME
+            version = BuildConfig.VERSION_NAME,
+            deviceName = android.os.Build.MODEL.ifBlank { "Hearth Remote" },
+            log = { line -> tvConnection.note(line) }
         )
     }
     DisposableEffect(guide) {
@@ -56,6 +58,7 @@ fun HearthRemoteApp() {
     val lastError by viewModel.lastError.collectAsState()
     val closeReason by viewModel.closeReason.collectAsState()
     val sessionLog by viewModel.sessionLog.collectAsState()
+    val powerOn by viewModel.powerOn.collectAsState()
     val currentScreen by viewModel.currentScreen.collectAsState()
     
     LaunchedEffect(isPaired) {
@@ -91,6 +94,8 @@ fun HearthRemoteApp() {
                         ConnectionStatus(
                             connectionState = connectionState,
                             lastError = lastError,
+                            powerOn = powerOn,
+                            onTogglePower = viewModel::togglePower,
                             onOpenLog = { viewModel.navigateTo(Screen.SessionLog) },
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                         )

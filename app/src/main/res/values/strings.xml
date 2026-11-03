@@ -39,6 +39,9 @@
     <string name="btn_home">Home</string>
     <string name="btn_menu">Menu</string>
     <string name="btn_power">Power</string>
+    <string name="power_on">On</string>
+    <string name="power_standby">Standby</string>
+    <string name="power_unknown">Power</string>
     <string name="btn_play_pause">Play/Pause</string>
     <string name="btn_volume_up">Volume Up</string>
     <string name="btn_volume_down">Volume Down</string>

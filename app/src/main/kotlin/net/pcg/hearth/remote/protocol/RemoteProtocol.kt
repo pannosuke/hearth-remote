@@ -18,7 +18,6 @@ class RemoteProtocol(
     companion object {
         const val REMOTE_PORT = 6466
         private const val TAG = "RemoteProtocol"
-        private const val RECONNECT_DELAY_MS = 3000L
         private const val HANDSHAKE_TIMEOUT_MS = 20000
         private const val MAX_PENDING = 32
         private const val MAX_LOG = 50
@@ -75,6 +74,7 @@ class RemoteProtocol(
     @Volatile private var connectionJob: Job? = null
     @Volatile private var readJob: Job? = null
     @Volatile private var reconnectJob: Job? = null
+    private val quietLeft = java.util.concurrent.atomic.AtomicInteger(0)
 
     data class VolumeState(
         val level: Int,
@@ -86,7 +86,7 @@ class RemoteProtocol(
         startWriteLoop()
     }
 
-    fun connect(host: String, expectedGeneration: Int? = null) {
+    fun connect(host: String, expectedGeneration: Int? = null, quiet: Boolean = false) {
         val id = synchronized(sessionLock) {
             if (expectedGeneration != null && generation != expectedGeneration) return
             val live = socket != null || opening
@@ -102,7 +102,7 @@ class RemoteProtocol(
         closeSocket()
         connectionJob?.cancel()
         readJob?.cancel()
-        _connectionState.value = ConnectionState.Connecting
+        if (!quiet) _connectionState.value = ConnectionState.Connecting
         record("sys", "connecting $host:$REMOTE_PORT")
 
         connectionJob = io.launch {
@@ -111,12 +111,13 @@ class RemoteProtocol(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                onSocketLost(id, e.message ?: "Connection failed")
+                onSocketLost(id, socketFailure(e, "Connection failed"))
             }
         }
     }
 
     fun disconnect() {
+        quietLeft.set(0)
         reconnectJob?.cancel()
         reconnectJob = null
         synchronized(sessionLock) {
@@ -138,6 +139,11 @@ class RemoteProtocol(
     fun reportError(message: String) {
         Log.w(TAG, message)
         _lastError.value = message
+    }
+
+    fun note(text: String) {
+        val clean = text.replace("\n", " ").replace("\r", " ").take(240)
+        if (clean.isNotBlank()) record("http", clean)
     }
 
     private suspend fun openSocket(host: String, id: Int) {
@@ -192,19 +198,28 @@ class RemoteProtocol(
             generation += 1
             activeHost!! to generation
         }
+        val wasUp = synchronized(pendingCommands) { sessionReady }
+        val plan = planReconnect(wasUp, quietLeft.get())
+        quietLeft.set(plan.quietLeft)
         Log.w(TAG, "Remote session lost: $message")
-        _lastError.value = message
         _closeReason.value = message
         record("close", message)
         synchronized(pendingCommands) { sessionReady = false }
-        _connectionState.value = ConnectionState.Error(message)
+        if (plan.quiet) {
+            if (_connectionState.value !is ConnectionState.Connected) {
+                _connectionState.value = ConnectionState.Connecting
+            }
+        } else {
+            _lastError.value = message
+            _connectionState.value = ConnectionState.Error(message)
+        }
         closeSocket()
         readJob?.cancel()
         reconnectJob?.cancel()
         reconnectJob = io.launch {
-            delay(RECONNECT_DELAY_MS)
+            delay(plan.delayMs)
             reconnectJob = null
-            connect(host, gen)
+            connect(host, gen, quiet = plan.quiet)
         }
     }
 
@@ -241,7 +256,7 @@ class RemoteProtocol(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                onSocketLost(id, e.message ?: "Connection lost")
+                onSocketLost(id, socketFailure(e, "Connection lost"))
             }
         }
     }
@@ -311,6 +326,7 @@ class RemoteProtocol(
 
     private fun onSessionReady(id: Int) {
         if (id != sessionId) return
+        quietLeft.set(0)
         val queued = synchronized(pendingCommands) {
             if (sessionReady) return
             sessionReady = true
@@ -383,7 +399,7 @@ class RemoteProtocol(
             }
             true
         } catch (e: Exception) {
-            onSocketLost(id, e.message ?: "Send failed")
+            onSocketLost(id, socketFailure(e, "Send failed"))
             false
         }
     }
@@ -428,6 +444,39 @@ internal fun describeRemoteMessage(message: RemoteMessage): String {
             "ime ${message.remoteImeKeyInject.appInfo.appPackage}"
         message.hasRemoteAppLinkLaunchRequest() ->
             "app_link ${message.remoteAppLinkLaunchRequest.appLink}"
+        message.hasRemoteImeBatchEdit() -> "ime_batch_edit"
+        message.hasRemoteImeShowRequest() -> "ime_show"
+        message.hasRemoteVoiceBegin() -> "voice_begin"
+        message.hasRemoteVoicePayload() -> "voice_payload"
+        message.hasRemoteVoiceEnd() -> "voice_end"
+        message.hasRemoteAdjustVolumeLevel() -> "adjust_volume"
+        message.hasRemoteSetPreferredAudioDevice() -> "set_preferred_audio"
+        message.hasRemoteResetPreferredAudioDevice() -> "reset_preferred_audio"
         else -> "unhandled"
     }
+}
+
+internal data class ReconnectPlan(
+    val quiet: Boolean,
+    val quietLeft: Int,
+    val delayMs: Long
+)
+
+internal fun planReconnect(wasUp: Boolean, quietLeft: Int): ReconnectPlan {
+    val quiet = wasUp || quietLeft > 0
+    val nextQuiet = when {
+        wasUp -> 3
+        quiet -> quietLeft - 1
+        else -> 0
+    }
+    return ReconnectPlan(
+        quiet = quiet,
+        quietLeft = nextQuiet,
+        delayMs = if (quiet) 400L else 2_000L
+    )
+}
+
+private fun socketFailure(error: Exception, fallback: String): String {
+    val detail = error.message?.takeIf { it.isNotBlank() } ?: fallback
+    return "${error.javaClass.simpleName}: $detail"
 }

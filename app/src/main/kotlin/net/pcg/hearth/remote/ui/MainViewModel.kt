@@ -19,6 +19,7 @@ class MainViewModel(
     val lastError = tvConnection.lastError
     val closeReason = tvConnection.closeReason
     val sessionLog = tvConnection.sessionLog
+    val powerOn = tvConnection.powerOn
     
     val isPaired: StateFlow<Boolean> = pairingState
         .map { state ->
@@ -66,5 +67,9 @@ class MainViewModel(
     
     fun navigateTo(screen: Screen) {
         _currentScreen.value = screen
+    }
+
+    fun togglePower() {
+        tvConnection.togglePower()
     }
 }

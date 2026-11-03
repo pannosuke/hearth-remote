@@ -30,6 +30,10 @@ import javax.net.ssl.*
  * 
  * Certificate generation uses BouncyCastle since standard JCA X.509 certificate
  * builder classes (sun.security.x509) are not available on Android.
+ * 
+ * IMPORTANT: On Android, the provider name "BC" refers to the platform's stripped-down
+ * BouncyCastle, not our bundled full version. We must pass provider instances directly
+ * to JcaContentSignerBuilder and JcaX509CertificateConverter instead of using the name.
  */
 class CertificateManager(private val context: Context) {
     
@@ -41,13 +45,9 @@ class CertificateManager(private val context: Context) {
         private const val PREFS_NAME = "hearth_remote_certs"
         private const val PREF_SERVER_CERT = "server_cert"
         private const val PREF_CERT_VERSION = "cert_version"
-        private const val CURRENT_CERT_VERSION = 2
+        private const val CURRENT_CERT_VERSION = 3
         
-        init {
-            if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
-                Security.addProvider(BouncyCastleProvider())
-            }
-        }
+        private val bcProvider = BouncyCastleProvider()
     }
     
     private val pkcs12File: File
@@ -146,6 +146,10 @@ class CertificateManager(private val context: Context) {
     
     /**
      * Generate a self-signed X.509 certificate using BouncyCastle.
+     * 
+     * Uses provider instance directly instead of provider name because on Android
+     * the name "BC" refers to the platform's stripped-down BouncyCastle which lacks
+     * the SHA256withRSA signer algorithm.
      */
     private fun generateSelfSignedCertificate(keyPair: KeyPair): X509Certificate {
         val dn = X500Name("CN=HearthRemote,O=PCG,C=JP")
@@ -166,13 +170,13 @@ class CertificateManager(private val context: Context) {
         )
         
         val signer = JcaContentSignerBuilder("SHA256withRSA")
-            .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+            .setProvider(bcProvider)
             .build(keyPair.private)
         
         val certHolder = certBuilder.build(signer)
         
         return JcaX509CertificateConverter()
-            .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+            .setProvider(bcProvider)
             .getCertificate(certHolder)
     }
     

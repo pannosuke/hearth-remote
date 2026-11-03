@@ -53,6 +53,8 @@
     <string name="channel_unknown">チャンネルなし</string>
     <string name="channel_button">ボタン %1$d</string>
     <string name="now_playing_placeholder">いまの番組</string>
+    <string name="epg_next">つぎ: %1$s</string>
+    <string name="epg_unavailable">番組表を取得できません</string>
     <string name="ch_ytv">読売テレビ</string>
     <string name="ch_ktv">関西テレビ</string>
     <string name="ch_tvo">テレビ大阪</string>

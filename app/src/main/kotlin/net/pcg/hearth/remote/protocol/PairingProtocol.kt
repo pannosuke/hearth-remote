@@ -1,10 +1,11 @@
 package net.pcg.hearth.remote.protocol
 
+import android.util.Log
 import net.pcg.hearth.remote.proto.PoloProto.OuterMessage
 import java.io.InputStream
 import java.io.OutputStream
-import java.security.MessageDigest
 import java.security.cert.X509Certificate
+import java.security.interfaces.RSAPublicKey
 import javax.net.ssl.SSLSocket
 
 class PairingProtocol(
@@ -12,6 +13,7 @@ class PairingProtocol(
 ) {
     companion object {
         const val PAIRING_PORT = 6467
+        private const val TAG = "PairingProtocol"
     }
     
     sealed class PairingResult {
@@ -52,7 +54,7 @@ class PairingProtocol(
             val secret = computeSecret(serverCert, code)
             
             send(output, PairingMessages.secret(secret))
-            val secretResult = receiveSecretAck(input)
+            val secretResult = receiveSecretAck(input, serverCert)
             
             if (secretResult is PairingResult.Success) {
                 certificateManager.saveServerCertificate(serverCert)
@@ -97,7 +99,7 @@ class PairingProtocol(
         return null
     }
     
-    private fun receiveSecretAck(input: InputStream): PairingResult {
+    private fun receiveSecretAck(input: InputStream, serverCert: X509Certificate): PairingResult {
         val outer = receiveMessage(input)
         if (outer.status == OuterMessage.Status.STATUS_BAD_SECRET) {
             return PairingResult.Error("Invalid pairing code")
@@ -109,42 +111,24 @@ class PairingProtocol(
             return PairingResult.Error("Unexpected secret response: ${describe(outer)}")
         }
         
-        val serverCert = certificateManager.getServerCertificate()
-            ?: return PairingResult.Error("No server certificate")
-        
         return PairingResult.Success(serverCert)
     }
     
     private fun computeSecret(serverCert: X509Certificate, code: String): ByteArray {
-        val (clientModulus, clientExponent) = certificateManager.getClientCertModulusAndExponent()
-        
-        val serverKey = serverCert.publicKey as java.security.interfaces.RSAPublicKey
-        var serverModulus = serverKey.modulus.toByteArray()
-        if (serverModulus[0] == 0.toByte()) {
-            serverModulus = serverModulus.copyOfRange(1, serverModulus.size)
-        }
-        var serverExponent = serverKey.publicExponent.toByteArray()
-        while (serverExponent.size < 3) {
-            serverExponent = byteArrayOf(0) + serverExponent
-        }
-        
-        val codeLastTwo = code.takeLast(2)
-        val codeBytes = codeLastTwo.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-        
-        val digest = MessageDigest.getInstance("SHA-256")
-        digest.update(clientModulus)
-        digest.update(clientExponent)
-        digest.update(serverModulus)
-        digest.update(serverExponent)
-        digest.update(codeBytes)
-        
-        val hash = digest.digest()
-        
-        val codeFirstTwo = code.take(2).toInt(16)
-        if (hash[0].toInt() and 0xFF != codeFirstTwo) {
+        val clientKey = certificateManager.getOrCreateClientCertificate().first.publicKey as RSAPublicKey
+        val serverKey = serverCert.publicKey as RSAPublicKey
+        val hash = PairingSecret.compute(
+            clientKey.modulus,
+            clientKey.publicExponent,
+            serverKey.modulus,
+            serverKey.publicExponent,
+            code,
+        )
+        val passed = PairingSecret.firstByteMatches(hash, code)
+        Log.i(TAG, "Pairing secret first-byte check ${if (passed) "passed" else "failed"}")
+        if (!passed) {
             throw IllegalArgumentException("Secret validation failed - code mismatch")
         }
-        
         return hash
     }
     

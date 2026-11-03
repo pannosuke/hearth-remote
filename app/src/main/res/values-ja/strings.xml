@@ -49,6 +49,11 @@
     <string name="app_netflix">Netflix</string>
     <string name="app_disney">Disney+</string>
     <string name="app_amazon">Prime Video</string>
+    <string name="app_jellyfin">Jellyfin</string>
+    <string name="app_tver">TVer</string>
+    <string name="app_nhk">NHK</string>
+    <string name="app_hulu">Hulu</string>
+    <string name="app_live_tv">地上波</string>
     
     <!-- Settings -->
     <string name="settings_title">設定</string>

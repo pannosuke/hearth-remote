@@ -179,8 +179,13 @@ class TvConnection(context: Context) {
     
     fun launchApp(uri: String) = remoteProtocol.launchApp(uri)
     
-    fun launchYouTube() = launchApp("https://www.youtube.com")
-    fun launchNetflix() = launchApp("https://www.netflix.com")
-    fun launchDisneyPlus() = launchApp("https://www.disneyplus.com")
-    fun launchAmazonVideo() = launchApp("https://www.amazon.com/gp/video")
+    fun launchYouTube() = launchApp(TvAppLinks.YOUTUBE)
+    fun launchNetflix() = launchApp(TvAppLinks.NETFLIX)
+    fun launchDisneyPlus() = launchApp(TvAppLinks.DISNEY_PLUS)
+    fun launchAmazonVideo() = launchApp(TvAppLinks.PRIME_VIDEO)
+    fun launchJellyfin() = launchApp(TvAppLinks.JELLYFIN)
+    fun launchTver() = launchApp(TvAppLinks.TVER)
+    fun launchNhk() = launchApp(TvAppLinks.NHK)
+    fun launchHulu() = launchApp(TvAppLinks.HULU)
+    fun launchLiveTv() = launchApp(TvAppLinks.LIVE_TV)
 }

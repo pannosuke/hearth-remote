@@ -54,21 +54,70 @@ class RemoteAppLinkTest {
     }
 
     @Test
-    fun `package ids become market launch links`() {
+    fun `apps tab sends one launchable link per shortcut`() {
         assertEquals(
-            "market://launch?id=com.netflix.ninja",
-            RemoteMessages.normalizeAppLink("com.netflix.ninja")
+            listOf("youtube", "netflix", "disney", "prime", "jellyfin", "tver", "nhk", "hulu", "live_tv"),
+            TvAppLinks.ALL.map { it.id }
         )
-        assertEquals(TvAppLinks.NETFLIX, RemoteMessages.appLink(TvAppLinks.NETFLIX).remoteAppLinkLaunchRequest.appLink)
-        assertEquals("com.netflix.ninja", packageId(TvAppLinks.NETFLIX))
-        assertEquals("com.disney.disneyplus", packageId(TvAppLinks.DISNEY_PLUS))
-        assertEquals("com.amazon.amazonvideo.livingroom", packageId(TvAppLinks.PRIME_VIDEO))
-        assertEquals("org.jellyfin.androidtv", packageId(TvAppLinks.JELLYFIN))
-        assertEquals("jp.co.tver.tvapp", packageId(TvAppLinks.TVER))
-        assertEquals("jp.nhk.plus.tv", packageId(TvAppLinks.NHK))
-        assertEquals("jp.happyon.android", packageId(TvAppLinks.HULU))
-        assertEquals("jp.co.sharp.av.android.aquostvapp", packageId(TvAppLinks.LIVE_TV))
+        val sent = TvAppLinks.ALL.associate { it.id to sentLink(it.link) }
+        assertEquals("https://www.youtube.com", sent.getValue("youtube"))
+        assertEquals("https://www.netflix.com/title", sent.getValue("netflix"))
+        assertEquals("https://www.disneyplus.com", sent.getValue("disney"))
+        assertEquals("https://app.primevideo.com", sent.getValue("prime"))
+        assertEquals("https://tver.jp", sent.getValue("tver"))
+        assertEquals(TvAppLinks.leanback("org.jellyfin.androidtv"), sent.getValue("jellyfin"))
+        assertEquals(TvAppLinks.leanback("jp.nhk.plus.tv"), sent.getValue("nhk"))
+        assertEquals(TvAppLinks.leanback("jp.happyon.android"), sent.getValue("hulu"))
+        assertEquals(TvAppLinks.leanback("jp.co.sharp.av.android.aquostvapp"), sent.getValue("live_tv"))
+        sent.values.forEach { link ->
+            assertFalse(link.startsWith("market://"))
+            assertTrue(link.startsWith("https://") || link.startsWith("intent://#Intent;"))
+        }
+        TvAppLinks.ALL.filter { it.link.startsWith("intent:") }.forEach { app ->
+            assertTrue(sent.getValue(app.id).contains("package=${app.packageName}"))
+            assertTrue(sent.getValue(app.id).contains("category=android.intent.category.LEANBACK_LAUNCHER"))
+        }
     }
 
-    private fun packageId(link: String): String = link.substringAfter("id=")
+    @Test
+    fun `market links and bare package ids become leanback intents`() {
+        assertEquals(
+            TvAppLinks.leanback("org.jellyfin.androidtv"),
+            RemoteMessages.normalizeAppLink("market://launch?id=org.jellyfin.androidtv")
+        )
+        assertEquals(
+            TvAppLinks.leanback("com.netflix.ninja"),
+            RemoteMessages.normalizeAppLink("com.netflix.ninja")
+        )
+        assertEquals(
+            "https://www.youtube.com/watch?v=abc",
+            RemoteMessages.normalizeAppLink("https://www.youtube.com/watch?v=abc")
+        )
+    }
+
+    @Test
+    fun `remote error keeps the session`() {
+        val rejected = RemoteMessage.newBuilder()
+            .setRemoteAppLinkLaunchRequest(
+                net.pcg.hearth.remote.proto.RemoteProto.RemoteAppLinkLaunchRequest.newBuilder()
+                    .setAppLink("market://launch?id=org.jellyfin.androidtv")
+            )
+            .build()
+        val message = RemoteMessage.newBuilder()
+            .setRemoteError(
+                net.pcg.hearth.remote.proto.RemoteProto.RemoteError.newBuilder()
+                    .setValue(true)
+                    .setMessage(rejected)
+            )
+            .build()
+        assertFalse(remoteErrorClosesSession(message))
+        val text = describeRemoteMessage(message)
+        assertTrue(text.contains("value=true"))
+        assertTrue(text.contains("app_link market://launch?id=org.jellyfin.androidtv"))
+        assertTrue(text.contains("session kept"))
+        assertFalse(text.startsWith("close"))
+    }
+
+    private fun sentLink(link: String): String =
+        RemoteMessages.appLink(link).remoteAppLinkLaunchRequest.appLink
 }

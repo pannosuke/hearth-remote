@@ -9,7 +9,6 @@ import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 import java.math.BigInteger
-import java.net.ServerSocket
 import java.security.*
 import java.security.cert.Certificate
 import java.security.cert.X509Certificate
@@ -32,11 +31,7 @@ class TlsHandshakeTest {
         private const val KEY_ALIAS = "test"
         private const val KEYSTORE_PASSWORD = "test-password"
         
-        init {
-            if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
-                Security.addProvider(BouncyCastleProvider())
-            }
-        }
+        private val bcProvider = BouncyCastleProvider()
     }
     
     private lateinit var clientKeyPair: KeyPair
@@ -59,6 +54,10 @@ class TlsHandshakeTest {
         return keyPairGenerator.generateKeyPair()
     }
     
+    /**
+     * Generate a self-signed certificate using provider instance directly.
+     * This mirrors the production code approach that works on Android.
+     */
     private fun generateSelfSignedCertificate(keyPair: KeyPair, dnString: String): X509Certificate {
         val dn = X500Name(dnString)
         val serialNumber = BigInteger.valueOf(System.currentTimeMillis())
@@ -78,13 +77,13 @@ class TlsHandshakeTest {
         )
         
         val signer = JcaContentSignerBuilder("SHA256withRSA")
-            .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+            .setProvider(bcProvider)
             .build(keyPair.private)
         
         val certHolder = certBuilder.build(signer)
         
         return JcaX509CertificateConverter()
-            .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+            .setProvider(bcProvider)
             .getCertificate(certHolder)
     }
     
@@ -265,5 +264,94 @@ class TlsHandshakeTest {
         val cert2 = generateSelfSignedCertificate(clientKeyPair, "CN=Test2")
         
         assertNotEquals(cert1.serialNumber, cert2.serialNumber)
+    }
+    
+    /**
+     * Simulates the Android environment where the "BC" provider name points to
+     * the platform's stripped-down BouncyCastle, not our bundled full version.
+     * 
+     * This test removes/replaces the BC provider by name and verifies that
+     * certificate generation still works when using provider instances directly.
+     */
+    @Test
+    fun `certificate generation works without BC provider registered by name`() {
+        val originalProvider = Security.getProvider("BC")
+        
+        try {
+            Security.removeProvider("BC")
+            assertNull("BC provider should be removed", Security.getProvider("BC"))
+            
+            val keyPair = generateKeyPair()
+            val cert = generateSelfSignedCertificate(keyPair, "CN=TestNoBC,O=Test,C=JP")
+            
+            assertNotNull(cert)
+            assertTrue(cert.subjectX500Principal.name.contains("CN=TestNoBC"))
+            assertEquals("SHA256WITHRSA", cert.sigAlgName.uppercase())
+            cert.verify(keyPair.public)
+        } finally {
+            if (originalProvider != null) {
+                Security.addProvider(originalProvider)
+            }
+        }
+    }
+    
+    /**
+     * Verifies that using provider name "BC" would fail if a different provider
+     * is registered under that name (simulating Android's stripped-down BC).
+     * 
+     * This test demonstrates why we must use provider instances directly.
+     */
+    @Test
+    fun `certificate generation with provider name fails when BC is shadowed`() {
+        val originalProvider = Security.getProvider("BC")
+        
+        try {
+            Security.removeProvider("BC")
+            
+            @Suppress("DEPRECATION")
+            val mockProvider = object : Provider("BC", 1.0, "Mock stripped BC") {
+                init {
+                    // No SHA256withRSA signer - like Android's stripped BC
+                }
+            }
+            Security.addProvider(mockProvider)
+            
+            val keyPair = generateKeyPair()
+            val dn = X500Name("CN=TestShadowed,O=Test,C=JP")
+            val certBuilder = JcaX509v3CertificateBuilder(
+                dn,
+                BigInteger.valueOf(System.currentTimeMillis()),
+                Date(),
+                Calendar.getInstance().apply { add(Calendar.YEAR, 1) }.time,
+                dn,
+                keyPair.public
+            )
+            
+            var exceptionThrown = false
+            try {
+                JcaContentSignerBuilder("SHA256withRSA")
+                    .setProvider("BC")
+                    .build(keyPair.private)
+            } catch (e: Exception) {
+                exceptionThrown = true
+                assertTrue(
+                    "Exception should mention algorithm not found",
+                    e.message?.contains("no such algorithm", ignoreCase = true) == true ||
+                    e.message?.contains("cannot create", ignoreCase = true) == true ||
+                    e.cause?.message?.contains("no such algorithm", ignoreCase = true) == true
+                )
+            }
+            
+            assertTrue("Using provider name 'BC' should fail with shadowed provider", exceptionThrown)
+            
+            val cert = generateSelfSignedCertificate(keyPair, "CN=TestWithInstance,O=Test,C=JP")
+            assertNotNull("Using provider instance should still work", cert)
+            
+        } finally {
+            Security.removeProvider("BC")
+            if (originalProvider != null) {
+                Security.addProvider(originalProvider)
+            }
+        }
     }
 }

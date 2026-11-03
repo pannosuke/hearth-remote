@@ -14,15 +14,29 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Validate tag format
+    - name: Validate tag format and compute version code
       run: |
         TAG=${GITHUB_REF#refs/tags/}
         if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
           echo "Error: Tag must be in format v1.2.3"
           exit 1
         fi
+        VERSION=${TAG#v}
+        
+        # Parse semver components
+        MAJOR=$(echo "$VERSION" | cut -d. -f1)
+        MINOR=$(echo "$VERSION" | cut -d. -f2)
+        PATCH=$(echo "$VERSION" | cut -d. -f3)
+        
+        # Compute versionCode: MAJOR*10000 + MINOR*100 + PATCH
+        # This allows up to 99 minor and 99 patch versions per major
+        VERSION_CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
+        
         echo "TAG=$TAG" >> $GITHUB_ENV
-        echo "VERSION=${TAG#v}" >> $GITHUB_ENV
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
+        
+        echo "Version: $VERSION (versionCode: $VERSION_CODE)"
     
     - name: Check signing secrets
       run: |
@@ -69,6 +83,7 @@ jobs:
     
     - name: Update version in build.gradle.kts
       run: |
+        sed -i "s/versionCode = [0-9]*/versionCode = ${{ env.VERSION_CODE }}/" app/build.gradle.kts
         sed -i "s/versionName = \".*\"/versionName = \"${{ env.VERSION }}\"/" app/build.gradle.kts
     
     - name: Build Release APK

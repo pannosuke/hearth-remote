@@ -6,7 +6,6 @@ import android.security.keystore.KeyProperties
 import java.io.ByteArrayInputStream
 import java.math.BigInteger
 import java.security.*
-import java.security.cert.Certificate
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
 import java.util.*
@@ -63,8 +62,13 @@ class CertificateManager(private val context: Context) {
             KEYSTORE_ALIAS,
             KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
         )
-            .setDigests(KeyProperties.DIGEST_SHA256)
+            .setDigests(
+                KeyProperties.DIGEST_NONE,
+                KeyProperties.DIGEST_SHA256,
+                KeyProperties.DIGEST_SHA512
+            )
             .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
+            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
             .setKeySize(2048)
             .setCertificateSubject(X500Principal("CN=HearthRemote,O=PCG,C=JP"))
             .setCertificateSerialNumber(BigInteger.valueOf(System.currentTimeMillis()))
@@ -114,13 +118,10 @@ class CertificateManager(private val context: Context) {
     }
     
     fun createSSLContext(): SSLContext {
-        val (clientCert, clientKey) = getOrCreateClientCertificate()
+        getOrCreateClientCertificate()
         
         val kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm())
-        val ks = KeyStore.getInstance(KeyStore.getDefaultType())
-        ks.load(null)
-        ks.setKeyEntry("client", clientKey, null, arrayOf<Certificate>(clientCert))
-        kmf.init(ks, null)
+        kmf.init(keyStore, null)
         
         val trustManager = object : X509TrustManager {
             override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
@@ -128,7 +129,7 @@ class CertificateManager(private val context: Context) {
             override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
         }
         
-        val sslContext = SSLContext.getInstance("TLS")
+        val sslContext = SSLContext.getInstance("TLSv1.2")
         sslContext.init(kmf.keyManagers, arrayOf(trustManager), SecureRandom())
         
         return sslContext

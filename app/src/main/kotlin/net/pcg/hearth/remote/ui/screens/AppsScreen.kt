@@ -23,34 +23,20 @@ data class AppItem(
     val name: String,
     val icon: ImageVector,
     val color: Color,
-    val onLaunch: (TvConnection) -> Unit
+    val onLaunch: (TvConnection) -> Unit,
 )
 
-private val apps = listOf(
-    AppItem(
-        name = "YouTube",
-        icon = Icons.Default.PlayCircle,
-        color = Color(0xFFFF0000),
-        onLaunch = { it.launchYouTube() }
-    ),
-    AppItem(
-        name = "Netflix",
-        icon = Icons.Default.Tv,
-        color = Color(0xFFE50914),
-        onLaunch = { it.launchNetflix() }
-    ),
-    AppItem(
-        name = "Disney+",
-        icon = Icons.Default.Movie,
-        color = Color(0xFF113CCF),
-        onLaunch = { it.launchDisneyPlus() }
-    ),
-    AppItem(
-        name = "Prime Video",
-        icon = Icons.Default.VideoLibrary,
-        color = Color(0xFF00A8E1),
-        onLaunch = { it.launchAmazonVideo() }
-    )
+@Composable
+private fun appShortcuts(): List<AppItem> = listOf(
+    AppItem(stringResource(R.string.app_youtube), Icons.Default.PlayCircle, Color(0xFFFF0000)) { it.launchYouTube() },
+    AppItem(stringResource(R.string.app_netflix), Icons.Default.Tv, Color(0xFFE50914)) { it.launchNetflix() },
+    AppItem(stringResource(R.string.app_disney), Icons.Default.Movie, Color(0xFF113CCF)) { it.launchDisneyPlus() },
+    AppItem(stringResource(R.string.app_amazon), Icons.Default.VideoLibrary, Color(0xFF00A8E1)) { it.launchAmazonVideo() },
+    AppItem(stringResource(R.string.app_jellyfin), Icons.Default.Theaters, Color(0xFF00A4DC)) { it.launchJellyfin() },
+    AppItem(stringResource(R.string.app_tver), Icons.Default.LiveTv, Color(0xFFF15A22)) { it.launchTver() },
+    AppItem(stringResource(R.string.app_nhk), Icons.Default.AccountBalance, Color(0xFFE60012)) { it.launchNhk() },
+    AppItem(stringResource(R.string.app_hulu), Icons.Default.SmartDisplay, Color(0xFF1CE783)) { it.launchHulu() },
+    AppItem(stringResource(R.string.app_live_tv), Icons.Default.SettingsInputAntenna, Color(0xFFB0BEC5)) { it.launchLiveTv() },
 )
 
 @Composable
@@ -58,6 +44,7 @@ fun AppsScreen(
     tvConnection: TvConnection
 ) {
     val view = LocalView.current
+    val apps = appShortcuts()
     
     Column(
         modifier = Modifier

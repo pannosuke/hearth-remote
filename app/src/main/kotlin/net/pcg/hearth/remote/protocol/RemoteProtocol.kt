@@ -1,9 +1,11 @@
 package net.pcg.hearth.remote.protocol
 
+import android.util.Log
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import net.pcg.hearth.remote.proto.RemoteProto.*
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
@@ -14,6 +16,7 @@ class RemoteProtocol(
 ) {
     companion object {
         const val REMOTE_PORT = 6466
+        private const val TAG = "RemoteProtocol"
         private const val PING_INTERVAL_MS = 5000L
         private const val RECONNECT_DELAY_MS = 3000L
     }
@@ -36,6 +39,9 @@ class RemoteProtocol(
     val volumeState: StateFlow<VolumeState?> = _volumeState.asStateFlow()
     
     private val commandChannel = Channel<RemoteMessage>(Channel.BUFFERED)
+    private val pendingCommands = ArrayDeque<RemoteMessage>()
+    private var sessionReady = false
+    private var activeFeatures = 0
     
     private var connectionJob: Job? = null
     private var readJob: Job? = null
@@ -66,13 +72,10 @@ class RemoteProtocol(
                 output = newSocket.getOutputStream()
                 input = newSocket.getInputStream()
                 
-                sendConfigure()
-                
-                _connectionState.value = ConnectionState.Connected
-                
+                // The TV sends RemoteConfigure first. Replying before that
+                // message arrives leaves app-link launches ignored.
                 startReadLoop()
                 startWriteLoop()
-                startPingLoop()
                 
             } catch (e: Exception) {
                 _connectionState.value = ConnectionState.Error(e.message ?: "Connection failed")
@@ -96,6 +99,11 @@ class RemoteProtocol(
         socket = null
         output = null
         input = null
+        activeFeatures = 0
+        synchronized(pendingCommands) {
+            sessionReady = false
+            pendingCommands.clear()
+        }
         
         _connectionState.value = ConnectionState.Disconnected
     }
@@ -105,38 +113,6 @@ class RemoteProtocol(
         if (_connectionState.value !is ConnectionState.Connected) {
             connect(host)
         }
-    }
-    
-    private fun sendConfigure() {
-        val deviceInfo = RemoteDeviceInfo.newBuilder()
-            .setModel(android.os.Build.MODEL)
-            .setVendor(android.os.Build.MANUFACTURER)
-            .setUnknown1(1)
-            .setUnknown2("1")
-            .setPackageName("net.pcg.hearth.remote")
-            .setAppVersion("1.0.0")
-            .build()
-        
-        val configure = RemoteConfigure.newBuilder()
-            .setCode1(622)
-            .setDeviceInfo(deviceInfo)
-            .build()
-        
-        val message = RemoteMessage.newBuilder()
-            .setRemoteConfigure(configure)
-            .build()
-        
-        sendMessageSync(message)
-        
-        val setActive = RemoteSetActive.newBuilder()
-            .setActive(622)
-            .build()
-        
-        val activeMessage = RemoteMessage.newBuilder()
-            .setRemoteSetActive(setActive)
-            .build()
-        
-        sendMessageSync(activeMessage)
     }
     
     private fun startReadLoop() {
@@ -174,6 +150,23 @@ class RemoteProtocol(
     
     private fun handleMessage(message: RemoteMessage) {
         when {
+            message.hasRemoteConfigure() -> {
+                val deviceCode = message.remoteConfigure.code1
+                activeFeatures = RemoteMessages.activeFeatures(deviceCode)
+                if (activeFeatures and RemoteMessages.FEATURE_APP_LINK == 0) {
+                    Log.w(TAG, "TV did not offer app-link in features $deviceCode")
+                }
+                Log.i(TAG, "RemoteConfigure features device=$deviceCode active=$activeFeatures")
+                sendMessageSync(RemoteMessages.configureResponse(deviceCode))
+            }
+            message.hasRemoteSetActive() -> {
+                Log.i(TAG, "RemoteSetActive")
+                sendMessageSync(RemoteMessages.setActiveResponse(activeFeatures))
+            }
+            message.hasRemoteStart() -> {
+                Log.i(TAG, "RemoteStart")
+                onSessionReady()
+            }
             message.hasRemotePingRequest() -> {
                 val response = RemotePingResponse.newBuilder()
                     .setVal1(message.remotePingRequest.val1)
@@ -191,10 +184,21 @@ class RemoteProtocol(
                     muted = volume.volumeMuted
                 )
             }
-            message.hasRemoteStart() -> {
-                // Connection established, remote is ready
+            message.hasRemoteError() -> {
+                Log.w(TAG, "TV remote error: ${message.remoteError}")
             }
         }
+    }
+
+    private fun onSessionReady() {
+        val queued = synchronized(pendingCommands) {
+            if (sessionReady) return
+            sessionReady = true
+            pendingCommands.toList().also { pendingCommands.clear() }
+        }
+        _connectionState.value = ConnectionState.Connected
+        queued.forEach { commandChannel.trySend(it) }
+        startPingLoop()
     }
     
     private fun sendPing() {
@@ -216,10 +220,7 @@ class RemoteProtocol(
         val message = RemoteMessage.newBuilder()
             .setRemoteKeyInject(keyInject)
             .build()
-        
-        CoroutineScope(Dispatchers.IO).launch {
-            commandChannel.send(message)
-        }
+        enqueue(message)
     }
     
     fun sendKeyPress(keyCode: RemoteKeyCode) {
@@ -235,15 +236,22 @@ class RemoteProtocol(
     }
     
     fun launchApp(appLink: String) {
-        val request = RemoteAppLinkLaunchRequest.newBuilder()
-            .setAppLink(appLink)
-            .build()
-        val message = RemoteMessage.newBuilder()
-            .setRemoteAppLinkLaunchRequest(request)
-            .build()
-        
-        CoroutineScope(Dispatchers.IO).launch {
-            commandChannel.send(message)
+        val message = RemoteMessages.appLink(appLink)
+        Log.i(TAG, "Queue app link ${message.remoteAppLinkLaunchRequest.appLink}")
+        enqueue(message)
+    }
+
+    private fun enqueue(message: RemoteMessage) {
+        val sendNow = synchronized(pendingCommands) {
+            if (sessionReady) {
+                true
+            } else {
+                pendingCommands.addLast(message)
+                false
+            }
+        }
+        if (sendNow) {
+            commandChannel.trySend(message)
         }
     }
     
@@ -252,8 +260,10 @@ class RemoteProtocol(
             val bytes = message.toByteArray()
             output?.let { out ->
                 synchronized(out) {
-                    writeVarint(out, bytes.size)
-                    out.write(bytes)
+                    val framed = ByteArrayOutputStream(bytes.size + 5)
+                    writeVarint(framed, bytes.size)
+                    framed.write(bytes)
+                    out.write(framed.toByteArray())
                     out.flush()
                 }
             }

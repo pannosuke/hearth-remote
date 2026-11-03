@@ -252,6 +252,7 @@ fun TrackpadScreen(
 fun ConnectionStatus(
     connectionState: RemoteProtocol.ConnectionState,
     lastError: String? = null,
+    onOpenLog: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val (text, color) = when (connectionState) {
@@ -298,6 +299,11 @@ fun ConnectionStatus(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+        if (onOpenLog != null) {
+            TextButton(onClick = onOpenLog) {
+                Text(stringResource(R.string.settings_connection_log))
+            }
         }
     }
 }

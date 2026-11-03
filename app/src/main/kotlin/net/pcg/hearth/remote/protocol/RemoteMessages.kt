@@ -13,12 +13,14 @@ import net.pcg.hearth.remote.proto.RemoteProto.RemoteSetActive
 /**
  * Remote-session messages for the Android TV remote port (6466).
  *
- * The TV speaks first. Reply to RemoteConfigure with [CLIENT_CODE] (622) and a
- * device_info that includes model and vendor, then reply to RemoteSetActive
- * with the same 622. This Sharp AQUOS accepts the TLS session and then ignores
- * every key and app link when the client sends the intersected mask (615) and
- * leaves model and vendor empty. 622 is KEY | IME | VOICE | POWER | VOLUME |
- * APP_LINK, which is what louis49/androidtv-remote sends.
+ * Byte layout matches tronikos/androidtvremote2 remote.py. The TV speaks
+ * first. The configure reply uses the intersection of [REQUESTED_FEATURES]
+ * and the TV's code1, and device_info carries only unknown1, unknown2,
+ * package_name, and app_version. Model and vendor stay unset. A hardcoded
+ * 622 plus model and vendor is what v0.1.8 sent; this TV closes that session
+ * and the client then reconnects. RemoteSetActive repeats the same
+ * intersection. Ping replies echo val1 on field 9. The client does not send
+ * its own pings.
  *
  * Key presses are RemoteKeyInject (field 10) with direction SHORT (3).
  * App launches are RemoteAppLinkLaunchRequest (field 90) and are only valid
@@ -33,36 +35,28 @@ internal object RemoteMessages {
     const val FEATURE_VOLUME = 1 shl 6
     const val FEATURE_APP_LINK = 1 shl 9
 
-    /** PING | KEY | IME | POWER | VOLUME | APP_LINK = 615. Logged, not sent. */
+    /** PING | KEY | IME | POWER | VOLUME | APP_LINK = 615. Voice stays off. */
     const val REQUESTED_FEATURES =
         FEATURE_PING or FEATURE_KEY or FEATURE_IME or FEATURE_POWER or FEATURE_VOLUME or FEATURE_APP_LINK
 
-    /** KEY | IME | VOICE | POWER | VOLUME | APP_LINK. */
-    const val CLIENT_CODE =
-        FEATURE_KEY or FEATURE_IME or FEATURE_VOICE or FEATURE_POWER or FEATURE_VOLUME or FEATURE_APP_LINK
-
-    const val CLIENT_MODEL = "Hearth Remote"
-    const val CLIENT_VENDOR = "PCG"
     const val CLIENT_PACKAGE = "atvremote"
     const val CLIENT_APP_VERSION = "1.0.0"
 
     init {
-        check(CLIENT_CODE == 622)
+        check(REQUESTED_FEATURES == 615)
     }
 
     fun activeFeatures(deviceCode: Int): Int = REQUESTED_FEATURES and deviceCode
 
-    fun configureResponse(): RemoteMessage {
+    fun configureResponse(deviceCode: Int): RemoteMessage {
         val deviceInfo = RemoteDeviceInfo.newBuilder()
-            .setModel(CLIENT_MODEL)
-            .setVendor(CLIENT_VENDOR)
             .setUnknown1(1)
             .setUnknown2("1")
             .setPackageName(CLIENT_PACKAGE)
             .setAppVersion(CLIENT_APP_VERSION)
             .build()
         val configure = RemoteConfigure.newBuilder()
-            .setCode1(CLIENT_CODE)
+            .setCode1(activeFeatures(deviceCode))
             .setDeviceInfo(deviceInfo)
             .build()
         return RemoteMessage.newBuilder()
@@ -70,9 +64,9 @@ internal object RemoteMessages {
             .build()
     }
 
-    fun setActiveResponse(): RemoteMessage {
+    fun setActiveResponse(active: Int): RemoteMessage {
         val setActive = RemoteSetActive.newBuilder()
-            .setActive(CLIENT_CODE)
+            .setActive(active)
             .build()
         return RemoteMessage.newBuilder()
             .setRemoteSetActive(setActive)

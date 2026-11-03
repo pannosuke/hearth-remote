@@ -34,7 +34,7 @@ fun NavigationBar(
         NavigationBarItem(
             icon = { Icon(Icons.Default.Settings, contentDescription = null) },
             label = { Text(stringResource(R.string.nav_settings)) },
-            selected = currentScreen == Screen.Settings,
+            selected = currentScreen == Screen.Settings || currentScreen == Screen.SessionLog,
             onClick = { onNavigate(Screen.Settings) }
         )
     }

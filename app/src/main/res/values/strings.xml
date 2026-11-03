@@ -77,7 +77,13 @@
     <!-- Settings -->
     <string name="settings_title">Settings</string>
     <string name="settings_tv_address">TV Address</string>
+    <string name="settings_connection_log">Connection log</string>
     <string name="settings_forget_pairing">Forget Pairing</string>
+    <string name="session_log_title">Connection log</string>
+    <string name="session_log_empty">No messages yet</string>
+    <string name="session_log_close_reason">Close reason: %1$s</string>
+    <string name="session_log_close_none">Close reason: none</string>
+    <string name="session_log_back">Back</string>
     <string name="settings_about">About</string>
     <string name="settings_version">Version %s</string>
     

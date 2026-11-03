@@ -7,9 +7,8 @@ import kotlinx.coroutines.flow.*
 import net.pcg.hearth.remote.proto.RemoteProto.*
 import java.io.ByteArrayOutputStream
 import java.io.EOFException
-import java.io.IOException
-import java.io.InputStream
 import java.io.OutputStream
+import java.net.SocketTimeoutException
 import javax.net.ssl.SSLSocket
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -19,10 +18,10 @@ class RemoteProtocol(
     companion object {
         const val REMOTE_PORT = 6466
         private const val TAG = "RemoteProtocol"
-        private const val PING_INTERVAL_MS = 5000L
         private const val RECONNECT_DELAY_MS = 3000L
-        private const val READ_TIMEOUT_MS = 20000
+        private const val HANDSHAKE_TIMEOUT_MS = 20000
         private const val MAX_PENDING = 32
+        private const val MAX_LOG = 50
     }
 
     sealed class ConnectionState {
@@ -32,9 +31,14 @@ class RemoteProtocol(
         data class Error(val message: String) : ConnectionState()
     }
 
+    data class SessionLogEntry(
+        val timeMs: Long,
+        val direction: String,
+        val text: String
+    )
+
     private var socket: SSLSocket? = null
     private var output: OutputStream? = null
-    private var input: InputStream? = null
     private var outputSessionId = 0
 
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
@@ -42,6 +46,12 @@ class RemoteProtocol(
 
     private val _lastError = MutableStateFlow<String?>(null)
     val lastError: StateFlow<String?> = _lastError.asStateFlow()
+
+    private val _closeReason = MutableStateFlow<String?>(null)
+    val closeReason: StateFlow<String?> = _closeReason.asStateFlow()
+
+    private val _sessionLog = MutableStateFlow<List<SessionLogEntry>>(emptyList())
+    val sessionLog: StateFlow<List<SessionLogEntry>> = _sessionLog.asStateFlow()
 
     private val _volumeState = MutableStateFlow<VolumeState?>(null)
     val volumeState: StateFlow<VolumeState?> = _volumeState.asStateFlow()
@@ -56,11 +66,15 @@ class RemoteProtocol(
     private val io = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val sessionLock = Any()
     private var sessionId = 0
-    private var activeHost: String? = null
+    private var generation = 0
 
-    private var connectionJob: Job? = null
-    private var readJob: Job? = null
-    private var pingJob: Job? = null
+    @Volatile private var activeHost: String? = null
+    @Volatile private var opening = false
+    @Volatile private var activeFeatures = RemoteMessages.REQUESTED_FEATURES
+
+    @Volatile private var connectionJob: Job? = null
+    @Volatile private var readJob: Job? = null
+    @Volatile private var reconnectJob: Job? = null
 
     data class VolumeState(
         val level: Int,
@@ -72,12 +86,24 @@ class RemoteProtocol(
         startWriteLoop()
     }
 
-    suspend fun connect(host: String) {
-        val id = synchronized(sessionLock) { ++sessionId }
-        activeHost = host
+    fun connect(host: String, expectedGeneration: Int? = null) {
+        val id = synchronized(sessionLock) {
+            if (expectedGeneration != null && generation != expectedGeneration) return
+            val live = socket != null || opening
+            if (activeHost == host && live) return
+            if (expectedGeneration == null) generation += 1
+            opening = true
+            activeHost = host
+            ++sessionId
+        }
+        reconnectJob?.cancel()
+        reconnectJob = null
         synchronized(pendingCommands) { sessionReady = false }
-        stopSocket()
+        closeSocket()
+        connectionJob?.cancel()
+        readJob?.cancel()
         _connectionState.value = ConnectionState.Connecting
+        record("sys", "connecting $host:$REMOTE_PORT")
 
         connectionJob = io.launch {
             try {
@@ -90,10 +116,18 @@ class RemoteProtocol(
         }
     }
 
-    suspend fun disconnect() {
-        synchronized(sessionLock) { sessionId += 1 }
-        activeHost = null
-        stopSocket()
+    fun disconnect() {
+        reconnectJob?.cancel()
+        reconnectJob = null
+        synchronized(sessionLock) {
+            generation += 1
+            sessionId += 1
+            activeHost = null
+            opening = false
+        }
+        closeSocket()
+        connectionJob?.cancel()
+        readJob?.cancel()
         synchronized(pendingCommands) {
             sessionReady = false
             pendingCommands.clear()
@@ -112,8 +146,9 @@ class RemoteProtocol(
         val newSocket = factory.createSocket(host, REMOTE_PORT) as SSLSocket
         newSocket.tcpNoDelay = true
         newSocket.keepAlive = true
-        newSocket.soTimeout = READ_TIMEOUT_MS
+        newSocket.soTimeout = HANDSHAKE_TIMEOUT_MS
         newSocket.startHandshake()
+        newSocket.soTimeout = 0
 
         val attached = synchronized(sessionLock) {
             if (id != sessionId) {
@@ -121,8 +156,9 @@ class RemoteProtocol(
             } else {
                 socket = newSocket
                 output = newSocket.getOutputStream()
-                input = newSocket.getInputStream()
                 outputSessionId = id
+                opening = false
+                activeFeatures = RemoteMessages.REQUESTED_FEATURES
                 true
             }
         }
@@ -131,21 +167,15 @@ class RemoteProtocol(
             return
         }
         Log.i(TAG, "Connected to $host:$REMOTE_PORT with the pairing certificate, waiting for RemoteConfigure")
-        startReadLoop(id)
+        record("sys", "socket open")
+        startReadLoop(id, newSocket)
     }
 
-    private fun stopSocket() {
-        connectionJob?.cancel()
-        readJob?.cancel()
-        pingJob?.cancel()
-        connectionJob = null
-        readJob = null
-        pingJob = null
+    private fun closeSocket() {
         val closing = synchronized(sessionLock) {
             val current = socket
             socket = null
             output = null
-            input = null
             current
         }
         try {
@@ -155,30 +185,58 @@ class RemoteProtocol(
     }
 
     private fun onSocketLost(id: Int, message: String) {
-        val host = synchronized(sessionLock) {
+        val (host, gen) = synchronized(sessionLock) {
             if (id != sessionId || activeHost == null) return
+            opening = false
             sessionId += 1
-            activeHost
-        } ?: return
+            generation += 1
+            activeHost!! to generation
+        }
         Log.w(TAG, "Remote session lost: $message")
         _lastError.value = message
+        _closeReason.value = message
+        record("close", message)
         synchronized(pendingCommands) { sessionReady = false }
         _connectionState.value = ConnectionState.Error(message)
-        stopSocket()
-        io.launch {
+        closeSocket()
+        readJob?.cancel()
+        reconnectJob?.cancel()
+        reconnectJob = io.launch {
             delay(RECONNECT_DELAY_MS)
-            if (activeHost == host) {
-                connect(host)
-            }
+            reconnectJob = null
+            connect(host, gen)
         }
     }
 
-    private fun startReadLoop(id: Int) {
+    private fun startReadLoop(id: Int, socket: SSLSocket) {
         readJob = io.launch {
+            val frame = RemoteFrameBuffer()
+            val buf = ByteArray(4096)
             try {
+                val input = socket.inputStream
                 while (isActive && id == sessionId) {
-                    val message = readMessage()
-                    handleMessage(message, id)
+                    val n = try {
+                        input.read(buf)
+                    } catch (e: SocketTimeoutException) {
+                        continue
+                    }
+                    if (n < 0) throw EOFException("EOF")
+                    if (frame.append(buf, n)) throw EOFException("EOF")
+                    while (true) {
+                        val payload = frame.poll() ?: break
+                        if (payload.isEmpty()) {
+                            record("in", "empty")
+                            continue
+                        }
+                        val message = try {
+                            RemoteMessage.parseFrom(payload)
+                        } catch (e: Exception) {
+                            record("in", "parse error ${e.message ?: "unknown"}")
+                            continue
+                        }
+                        record("in", describeRemoteMessage(message))
+                        handleMessage(message, id)
+                    }
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -201,34 +259,22 @@ class RemoteProtocol(
         }
     }
 
-    private fun startPingLoop(id: Int) {
-        pingJob?.cancel()
-        pingJob = io.launch {
-            while (isActive && id == sessionId && _connectionState.value == ConnectionState.Connected) {
-                delay(PING_INTERVAL_MS)
-                if (id != sessionId) break
-                sendPing()
-            }
-        }
-    }
-
     private fun handleMessage(message: RemoteMessage, id: Int) {
         when {
             message.hasRemoteConfigure() -> {
                 val deviceCode = message.remoteConfigure.code1
+                val replyCode = RemoteMessages.activeFeatures(deviceCode)
+                activeFeatures = replyCode
                 if (deviceCode and RemoteMessages.FEATURE_APP_LINK == 0) {
                     Log.w(TAG, "TV did not offer app-link in features $deviceCode")
                 }
-                Log.i(
-                    TAG,
-                    "RemoteConfigure device=$deviceCode reply=${RemoteMessages.CLIENT_CODE} " +
-                        "model=${RemoteMessages.CLIENT_MODEL}"
-                )
-                sendMessageSync(RemoteMessages.configureResponse())
+                Log.i(TAG, "RemoteConfigure device=$deviceCode reply=$replyCode")
+                sendMessageSync(RemoteMessages.configureResponse(deviceCode))
             }
             message.hasRemoteSetActive() -> {
-                Log.i(TAG, "RemoteSetActive reply=${RemoteMessages.CLIENT_CODE}")
-                sendMessageSync(RemoteMessages.setActiveResponse())
+                val active = activeFeatures
+                Log.i(TAG, "RemoteSetActive reply=$active")
+                sendMessageSync(RemoteMessages.setActiveResponse(active))
             }
             message.hasRemoteStart() -> {
                 Log.i(TAG, "RemoteStart")
@@ -253,8 +299,8 @@ class RemoteProtocol(
                 )
             }
             message.hasRemoteError() -> {
-                val text = "TV rejected a command"
-                Log.w(TAG, "$text: ${message.remoteError}")
+                val text = "TV rejected a command: ${message.remoteError.value}"
+                Log.w(TAG, "$text ${message.remoteError}")
                 _lastError.value = text
             }
             else -> {
@@ -273,18 +319,6 @@ class RemoteProtocol(
         _connectionState.value = ConnectionState.Connected
         _lastError.value = null
         queued.forEach { commandChannel.trySend(it) }
-        startPingLoop(id)
-    }
-
-    private fun sendPing() {
-        val ping = RemotePingRequest.newBuilder()
-            .setVal1((System.currentTimeMillis() / 1000).toInt())
-            .setVal2(0)
-            .build()
-        val message = RemoteMessage.newBuilder()
-            .setRemotePingRequest(ping)
-            .build()
-        sendMessageSync(message)
     }
 
     fun sendKey(keyCode: RemoteKeyCode, direction: RemoteDirection = RemoteDirection.SHORT) {
@@ -329,7 +363,7 @@ class RemoteProtocol(
             val host = activeHost
             val state = _connectionState.value
             if (host != null && state !is ConnectionState.Connecting && state !is ConnectionState.Connected) {
-                io.launch { connect(host) }
+                connect(host)
             }
         }
     }
@@ -339,6 +373,7 @@ class RemoteProtocol(
         if (out == null) return false
         return try {
             val bytes = message.toByteArray()
+            record("out", describeRemoteMessage(message))
             synchronized(out) {
                 val framed = ByteArrayOutputStream(bytes.size + 5)
                 writeVarint(framed, bytes.size)
@@ -353,18 +388,11 @@ class RemoteProtocol(
         }
     }
 
-    private fun readMessage(): RemoteMessage {
-        val inp = input ?: throw EOFException("Remote session closed")
-        val length = readVarint(inp)
-        if (length <= 0 || length > 1_000_000) throw IOException("Bad message length $length")
-        val bytes = ByteArray(length)
-        var read = 0
-        while (read < length) {
-            val n = inp.read(bytes, read, length - read)
-            if (n < 0) throw EOFException("Remote session closed")
-            read += n
+    private fun record(direction: String, text: String) {
+        val entry = SessionLogEntry(System.currentTimeMillis(), direction, text)
+        _sessionLog.update { current ->
+            if (current.size < MAX_LOG) current + entry else current.drop(1) + entry
         }
-        return RemoteMessage.parseFrom(bytes)
     }
 
     private fun writeVarint(output: OutputStream, value: Int) {
@@ -375,18 +403,31 @@ class RemoteProtocol(
         }
         output.write(v)
     }
+}
 
-    private fun readVarint(input: InputStream): Int {
-        var result = 0
-        var shift = 0
-        while (true) {
-            val b = input.read()
-            if (b < 0) throw EOFException("Remote session closed")
-            result = result or ((b and 0x7F) shl shift)
-            if ((b and 0x80) == 0) break
-            shift += 7
-            if (shift > 35) throw IOException("Varint too long")
+internal fun describeRemoteMessage(message: RemoteMessage): String {
+    return when {
+        message.hasRemoteConfigure() -> {
+            val info = message.remoteConfigure.deviceInfo
+            "configure code1=${message.remoteConfigure.code1} model=${info.model} vendor=${info.vendor}"
         }
-        return result
+        message.hasRemoteSetActive() -> "set_active active=${message.remoteSetActive.active}"
+        message.hasRemoteError() -> "error value=${message.remoteError.value}"
+        message.hasRemotePingRequest() -> "ping_request val1=${message.remotePingRequest.val1}"
+        message.hasRemotePingResponse() -> "ping_response val1=${message.remotePingResponse.val1}"
+        message.hasRemoteKeyInject() -> {
+            val key = message.remoteKeyInject
+            "key_inject ${key.keyCode.name} ${key.direction.name}"
+        }
+        message.hasRemoteStart() -> "start started=${message.remoteStart.started}"
+        message.hasRemoteSetVolumeLevel() -> {
+            val volume = message.remoteSetVolumeLevel
+            "volume level=${volume.volumeLevel} max=${volume.volumeMax} muted=${volume.volumeMuted}"
+        }
+        message.hasRemoteImeKeyInject() ->
+            "ime ${message.remoteImeKeyInject.appInfo.appPackage}"
+        message.hasRemoteAppLinkLaunchRequest() ->
+            "app_link ${message.remoteAppLinkLaunchRequest.appLink}"
+        else -> "unhandled"
     }
 }

@@ -22,6 +22,8 @@ fun HearthRemoteApp() {
     val pairingState by viewModel.pairingState.collectAsState()
     val connectionState by viewModel.connectionState.collectAsState()
     val lastError by viewModel.lastError.collectAsState()
+    val closeReason by viewModel.closeReason.collectAsState()
+    val sessionLog by viewModel.sessionLog.collectAsState()
     val currentScreen by viewModel.currentScreen.collectAsState()
     
     LaunchedEffect(isPaired) {
@@ -57,6 +59,7 @@ fun HearthRemoteApp() {
                         ConnectionStatus(
                             connectionState = connectionState,
                             lastError = lastError,
+                            onOpenLog = { viewModel.navigateTo(Screen.SessionLog) },
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                         )
                         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
@@ -66,7 +69,13 @@ fun HearthRemoteApp() {
                                 Screen.Apps -> AppsScreen(tvConnection = tvConnection)
                                 Screen.Settings -> SettingsScreen(
                                     tvConnection = tvConnection,
+                                    onOpenLog = { viewModel.navigateTo(Screen.SessionLog) },
                                     onForgetPairing = viewModel::forgetPairing
+                                )
+                                Screen.SessionLog -> SessionLogScreen(
+                                    lines = sessionLog,
+                                    closeReason = closeReason,
+                                    onBack = { viewModel.navigateTo(Screen.Settings) }
                                 )
                             }
                         }
@@ -80,5 +89,5 @@ fun HearthRemoteApp() {
 }
 
 enum class Screen {
-    Remote, Trackpad, Apps, Settings
+    Remote, Trackpad, Apps, Settings, SessionLog
 }

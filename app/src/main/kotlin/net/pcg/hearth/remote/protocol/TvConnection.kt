@@ -24,6 +24,8 @@ class TvConnection(private val context: Context) {
     
     val connectionState = remoteProtocol.connectionState
     val lastError = remoteProtocol.lastError
+    val closeReason = remoteProtocol.closeReason
+    val sessionLog = remoteProtocol.sessionLog
     val volumeState = remoteProtocol.volumeState
     val currentAppPackage = remoteProtocol.currentAppPackage
 

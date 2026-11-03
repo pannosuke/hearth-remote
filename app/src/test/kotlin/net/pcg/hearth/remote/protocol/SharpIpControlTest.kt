@@ -7,6 +7,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.ServerSocket
+import java.net.Socket
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -82,6 +83,99 @@ class SharpIpControlTest {
         }
     }
 
+    @Test
+    fun `two commands reuse one socket inside the idle window`() = runBlocking {
+        ServerSocket(0).use { server ->
+            val accepted = AtomicInteger(0)
+            val thread = Thread {
+                val client = server.accept()
+                accepted.incrementAndGet()
+                repeat(2) {
+                    val buf = ByteArray(9)
+                    readFully(client.getInputStream(), buf)
+                    client.getOutputStream().write("OK\r".toByteArray())
+                    client.getOutputStream().flush()
+                }
+                client.close()
+            }
+            thread.start()
+            val control = control(server.localPort)
+            assertEquals("OK", control.command("VOLM", "????"))
+            assertEquals("OK", control.command("MUTE", "????"))
+            thread.join(3000)
+            assertEquals(1, accepted.get())
+        }
+    }
+
+    @Test
+    fun `the socket is reopened after the idle window`() = runBlocking {
+        ServerSocket(0).use { server ->
+            val accepted = AtomicInteger(0)
+            val thread = Thread {
+                repeat(2) {
+                    val client = server.accept()
+                    accepted.incrementAndGet()
+                    val buf = ByteArray(9)
+                    readFully(client.getInputStream(), buf)
+                    client.getOutputStream().write("OK\r".toByteArray())
+                    client.getOutputStream().flush()
+                    if (it == 0) waitForPeerClose(client)
+                    client.close()
+                }
+            }
+            thread.start()
+            var now = 1_000L
+            val control = SharpIpControl(
+                hostProvider = { "127.0.0.1" },
+                port = server.localPort,
+                idleWindowMs = 60_000,
+                clock = { now },
+                sleeper = {}
+            )
+            assertEquals("OK", control.command("POWR", "????"))
+            assertEquals(1, accepted.get())
+            now += 60_000
+            assertEquals("OK", control.command("POWR", "????"))
+            thread.join(3000)
+            assertEquals(2, accepted.get())
+        }
+    }
+
+    @Test
+    fun `service busy is retried and not returned`() = runBlocking {
+        ServerSocket(0).use { server ->
+            val accepted = AtomicInteger(0)
+            val thread = Thread {
+                repeat(2) { attempt ->
+                    val client = server.accept()
+                    accepted.incrementAndGet()
+                    val buf = ByteArray(9)
+                    readFully(client.getInputStream(), buf)
+                    val reply = if (attempt == 0) {
+                        "Service Busy. Connection Closed.\r"
+                    } else {
+                        "TB10\r"
+                    }
+                    client.getOutputStream().write(reply.toByteArray())
+                    client.getOutputStream().flush()
+                    client.close()
+                }
+            }
+            thread.start()
+            val control = control(server.localPort)
+            assertEquals("TB10", control.command("CHRC", "????"))
+            thread.join(3000)
+            assertEquals(2, accepted.get())
+            assertTrue(SharpIpCommands.isServiceBusy("Service Busy. Connection Closed."))
+        }
+    }
+
+    private fun control(port: Int) = SharpIpControl(
+        hostProvider = { "127.0.0.1" },
+        port = port,
+        sleeper = {}
+    )
+
     private fun ascii(bytes: ByteArray) = bytes.toString(Charsets.US_ASCII)
 
     private fun readFully(input: java.io.InputStream, buf: ByteArray) {
@@ -90,6 +184,14 @@ class SharpIpControlTest {
             val n = input.read(buf, read, buf.size - read)
             if (n < 0) break
             read += n
+        }
+    }
+
+    private fun waitForPeerClose(client: Socket) {
+        try {
+            client.soTimeout = 3000
+            client.getInputStream().read()
+        } catch (_: Exception) {
         }
     }
 }

@@ -13,14 +13,13 @@ import net.pcg.hearth.remote.proto.RemoteProto.RemoteSetActive
 /**
  * Remote-session messages for the Android TV remote port (6466).
  *
- * Byte layout matches tronikos/androidtvremote2 remote.py. The TV speaks
- * first. The configure reply uses the intersection of [REQUESTED_FEATURES]
- * and the TV's code1, and device_info carries only unknown1, unknown2,
- * package_name, and app_version. Model and vendor stay unset. A hardcoded
- * 622 plus model and vendor is what v0.1.8 sent; this TV closes that session
- * and the client then reconnects. RemoteSetActive repeats the same
- * intersection. Ping replies echo val1 on field 9. The client does not send
- * its own pings.
+ * Byte layout matches tronikos/androidtvremote2 remote.py for the feature
+ * mask. The TV speaks first. The configure reply uses the intersection of
+ * [REQUESTED_FEATURES] and the TV's code1. device_info carries model,
+ * vendor, unknown1, unknown2, package_name, and app_version. code1 stays
+ * the intersection: a hardcoded 622 is what v0.1.8 sent, and this TV closed
+ * that session. RemoteSetActive repeats the same intersection. Ping replies
+ * echo val1 on field 9. The client does not send its own pings.
  *
  * Key presses are RemoteKeyInject (field 10) with direction SHORT (3).
  * App launches are RemoteAppLinkLaunchRequest (field 90) and are only valid
@@ -39,6 +38,8 @@ internal object RemoteMessages {
     const val REQUESTED_FEATURES =
         FEATURE_PING or FEATURE_KEY or FEATURE_IME or FEATURE_POWER or FEATURE_VOLUME or FEATURE_APP_LINK
 
+    const val CLIENT_MODEL = "Hearth Remote"
+    const val CLIENT_VENDOR = "pannosuke"
     const val CLIENT_PACKAGE = "atvremote"
     const val CLIENT_APP_VERSION = "1.0.0"
 
@@ -50,6 +51,8 @@ internal object RemoteMessages {
 
     fun configureResponse(deviceCode: Int): RemoteMessage {
         val deviceInfo = RemoteDeviceInfo.newBuilder()
+            .setModel(CLIENT_MODEL)
+            .setVendor(CLIENT_VENDOR)
             .setUnknown1(1)
             .setUnknown2("1")
             .setPackageName(CLIENT_PACKAGE)

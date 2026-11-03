@@ -79,6 +79,8 @@
     <string name="settings_tv_address">TV Address</string>
     <string name="settings_connection_log">Connection log</string>
     <string name="settings_forget_pairing">Forget Pairing</string>
+    <string name="settings_subtitle_macro">Subtitle macro</string>
+    <string name="settings_subtitle_macro_hint">One step per line. IRCO 0267 is one key. WAIT 400 pauses. The subtitle button runs this sequence.</string>
     <string name="session_log_title">Connection log</string>
     <string name="session_log_empty">No messages yet</string>
     <string name="session_log_close_reason">Close reason: %1$s</string>

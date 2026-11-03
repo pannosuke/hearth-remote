@@ -9,22 +9,22 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * Golden bytes for the messages androidtvremote2 sends.
+ * Golden bytes for the remote configure reply.
  * A typical TV offers code1 639. The reply is the intersection, 615,
- * with model and vendor left unset.
+ * with model and vendor filled in. code1 is not the hardcoded 622.
  * Field numbers: configure=1, set_active=2, ping_response=9, key_inject=10, start=40.
  * Direction SHORT is 3.
  */
 class RemoteMessageEncodingTest {
 
     @Test
-    fun `configure reply for device 639 is 615 without model or vendor`() {
+    fun `configure reply for device 639 is 615 with model and vendor`() {
         val bytes = RemoteMessages.configureResponse(639).toByteArray()
         assertArrayEquals(hex(CONFIGURE_615), bytes)
         val parsed = RemoteMessage.parseFrom(bytes)
         assertEquals(615, parsed.remoteConfigure.code1)
-        assertEquals("", parsed.remoteConfigure.deviceInfo.model)
-        assertEquals("", parsed.remoteConfigure.deviceInfo.vendor)
+        assertEquals("Hearth Remote", parsed.remoteConfigure.deviceInfo.model)
+        assertEquals("pannosuke", parsed.remoteConfigure.deviceInfo.vendor)
         assertEquals(1, parsed.remoteConfigure.deviceInfo.unknown1)
         assertEquals("1", parsed.remoteConfigure.deviceInfo.unknown2)
         assertEquals("atvremote", parsed.remoteConfigure.deviceInfo.packageName)
@@ -93,7 +93,7 @@ class RemoteMessageEncodingTest {
 
     companion object {
         private const val CONFIGURE_615 =
-            "0a1c08e704121718012201312a0961747672656d6f74653205312e302e30"
+            "0a3608e70412310a0d4865617274682052656d6f7465120970616e6e6f73756b6518012201312a0961747672656d6f74653205312e302e30"
         private const val SET_ACTIVE_615 = "120308e704"
         private const val PING_VAL1_5 = "4a020805"
         private const val KEY_HOME_SHORT = "520408031003"

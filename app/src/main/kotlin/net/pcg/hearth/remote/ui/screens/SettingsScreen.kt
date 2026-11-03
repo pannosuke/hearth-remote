@@ -1,6 +1,8 @@
 package net.pcg.hearth.remote.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -26,6 +28,7 @@ fun SettingsScreen(
     val tvHost = settingsRepository.getTvHost() ?: settingsRepository.getDefaultTvHost()
     
     var showForgetDialog by remember { mutableStateOf(false) }
+    var subtitleMacro by remember { mutableStateOf(settingsRepository.getSubtitleMacro()) }
     
     Column(
         modifier = Modifier
@@ -38,7 +41,12 @@ fun SettingsScreen(
         )
         
         Spacer(modifier = Modifier.height(24.dp))
-        
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+        ) {
         // TV Address
         ListItem(
             headlineContent = { Text(stringResource(R.string.settings_tv_address)) },
@@ -92,8 +100,23 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.error
             )
         }
-        
-        Spacer(modifier = Modifier.weight(1f))
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = subtitleMacro,
+            onValueChange = { value ->
+                subtitleMacro = value
+                settingsRepository.setSubtitleMacro(value)
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(stringResource(R.string.settings_subtitle_macro)) },
+            supportingText = { Text(stringResource(R.string.settings_subtitle_macro_hint)) },
+            minLines = 3
+        )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
         
         // About
         Column(

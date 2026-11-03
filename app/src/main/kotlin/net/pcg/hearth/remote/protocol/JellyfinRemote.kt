@@ -16,10 +16,12 @@ import kotlinx.coroutines.flow.asStateFlow
 internal class JellyfinRemote(
     private val store: JellyfinCredentialStore,
     private val transport: JellyfinTransport,
-    version: String = "0.2.3",
-    private val clock: () -> Long = System::currentTimeMillis
+    version: String = "0.2.4",
+    private val deviceName: String = "Hearth Remote",
+    private val clock: () -> Long = System::currentTimeMillis,
+    private val log: (String) -> Unit = {}
 ) {
-    private val versionName = version.ifBlank { "0.2.3" }
+    private val versionName = version.ifBlank { "0.2.4" }
     private val mutex = Mutex()
     private val _state = MutableStateFlow(initialState())
     val state: StateFlow<JellyfinUiState> = _state.asStateFlow()
@@ -28,39 +30,54 @@ internal class JellyfinRemote(
         withContext(Dispatchers.IO) {
             mutex.withLock {
                 val url = JellyfinApi.normalizeServerUrl(rawUrl)
-                if (url.isEmpty() || username.isBlank()) {
-                    _state.value = JellyfinUiState(serverUrl = url, problem = JellyfinProblem.SignInFailed)
+                val name = username.trim()
+                if (url.isEmpty() || name.isEmpty()) {
+                    val detail = "Missing server or username"
+                    log("← SignInFailed $detail")
+                    _state.value = JellyfinUiState(
+                        serverUrl = url,
+                        problem = JellyfinProblem.SignInFailed,
+                        detail = detail
+                    )
                     return@withLock
                 }
                 try {
-                    val result = transport.exchange(
+                    val result = exchange(
                         JellyfinCall(
                             method = "POST",
                             url = JellyfinApi.authenticateUrl(url),
                             headers = headers(token = null, json = true),
-                            body = JellyfinApi.authBody(username, password)
-                        )
+                            body = JellyfinApi.authBody(name, password)
+                        ),
+                        secret = password
                     )
-                    if (result.code == 401 || result.code == 400) {
-                        _state.value = JellyfinUiState(serverUrl = url, problem = JellyfinProblem.SignInFailed)
+                    if (result.code !in 200..299) {
+                        val detail = httpDetail(result, password)
+                        _state.value = JellyfinUiState(
+                            serverUrl = url,
+                            problem = JellyfinProblem.SignInFailed,
+                            detail = detail
+                        )
                         return@withLock
                     }
-                    if (result.code !in 200..299) throw JellyfinHttpException(result.code)
-                    val (userId, name, token) = JellyfinApi.parseAuth(result.text())
+                    val (userId, signedInName, token) = JellyfinApi.parseAuth(result.text())
                     val login = JellyfinLogin(
                         serverUrl = url,
                         userId = userId,
-                        userName = name.ifBlank { username },
+                        userName = signedInName.ifBlank { name },
                         accessToken = token
                     )
                     store.write(login)
                     pull(login)
                 } catch (e: CancellationException) {
                     throw e
-                } catch (_: JellyfinHttpException) {
-                    _state.value = JellyfinUiState(serverUrl = url, problem = JellyfinProblem.SignInFailed)
-                } catch (_: Exception) {
-                    _state.value = JellyfinUiState(serverUrl = url, problem = JellyfinProblem.SignInFailed)
+                } catch (e: Exception) {
+                    val detail = "${e.javaClass.simpleName}: ${JellyfinApi.redact(e.message.orEmpty(), password)}".trim()
+                    _state.value = JellyfinUiState(
+                        serverUrl = url,
+                        problem = JellyfinProblem.SignInFailed,
+                        detail = detail
+                    )
                 }
             }
         }
@@ -115,7 +132,7 @@ internal class JellyfinRemote(
         val login = store.read() ?: return null
         if (itemId.isBlank()) return null
         return try {
-            val result = transport.exchange(
+            val result = exchange(
                 JellyfinCall(
                     method = "GET",
                     url = JellyfinApi.imageUrl(login.serverUrl, itemId, tag),
@@ -124,6 +141,8 @@ internal class JellyfinRemote(
                 )
             )
             if (result.code in 200..299 && result.bytes.isNotEmpty()) result.bytes else null
+        } catch (e: CancellationException) {
+            throw e
         } catch (_: Exception) {
             null
         }
@@ -219,11 +238,13 @@ internal class JellyfinRemote(
     }
 
     private fun noteFailure(login: JellyfinLogin, code: Int) {
+        val detail = "HTTP $code"
         if (code == 401) {
             store.clearLogin()
             _state.value = JellyfinUiState(
                 serverUrl = login.serverUrl,
                 problem = JellyfinProblem.Unauthorized,
+                detail = detail,
                 loaded = true
             )
         } else {
@@ -232,21 +253,43 @@ internal class JellyfinRemote(
                 serverUrl = login.serverUrl,
                 userName = login.userName,
                 problem = JellyfinProblem.RequestFailed,
+                detail = detail,
                 loaded = true
             )
         }
     }
 
+    private fun exchange(call: JellyfinCall, secret: String? = null): JellyfinResult {
+        val path = JellyfinApi.logPath(call.url)
+        log("→ ${call.method} $path")
+        try {
+            val result = transport.exchange(call)
+            val suffix = if (result.code in 200..299) "" else " " + JellyfinApi.redact(result.text(), secret)
+            log("← ${result.code} ${call.method} $path$suffix".trim())
+            return result
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            log(
+                "← ${e.javaClass.simpleName} ${call.method} $path ${JellyfinApi.redact(e.message.orEmpty(), secret)}".trim()
+            )
+            throw e
+        }
+    }
+
+    private fun httpDetail(result: JellyfinResult, secret: String): String {
+        val body = JellyfinApi.redact(result.text(), secret)
+        return if (body.isBlank()) "HTTP ${result.code}" else "HTTP ${result.code} $body"
+    }
+
     private fun get(login: JellyfinLogin, url: String): JellyfinResult {
-        val result = transport.exchange(
-            JellyfinCall("GET", url, headers(login.accessToken, json = false), body = null)
-        )
+        val result = exchange(JellyfinCall("GET", url, headers(login.accessToken, json = false), body = null))
         if (result.code !in 200..299) throw JellyfinHttpException(result.code)
         return result
     }
 
     private fun post(login: JellyfinLogin, url: String, body: String?) {
-        val result = transport.exchange(
+        val result = exchange(
             JellyfinCall("POST", url, headers(login.accessToken, json = body != null), body)
         )
         if (result.code !in 200..299) throw JellyfinHttpException(result.code)
@@ -256,7 +299,12 @@ internal class JellyfinRemote(
         val headers = linkedMapOf(
             "Accept" to "application/json",
             "User-Agent" to "HearthRemote",
-            "X-Emby-Authorization" to JellyfinApi.embyAuthorization(store.deviceId(), versionName)
+            "Authorization" to JellyfinApi.embyAuthorization(
+                store.deviceId(),
+                versionName,
+                deviceName,
+                token
+            )
         )
         if (!token.isNullOrBlank()) headers["X-Emby-Token"] = token
         if (json) headers["Content-Type"] = "application/json"

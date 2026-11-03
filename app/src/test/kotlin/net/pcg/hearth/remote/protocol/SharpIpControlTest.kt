@@ -24,6 +24,12 @@ class SharpIpControlTest {
         assertEquals("CHUP    \r", ascii(SharpIpCommands.encode("CHUP", "")))
         assertEquals("CHDW    \r", ascii(SharpIpCommands.encode("CHDW", "")))
         assertEquals("POWR????\r", ascii(SharpIpCommands.encode("POWR", "????")))
+        assertEquals("POWR0   \r", ascii(SharpIpCommands.encode("POWR", "0")))
+        assertEquals("POWR1   \r", ascii(SharpIpCommands.encode("POWR", "1")))
+        assertEquals("RSPW2   \r", ascii(SharpIpCommands.encode("RSPW", "2")))
+        assertEquals(true, SharpIpPower.parse("1"))
+        assertEquals(false, SharpIpPower.parse("0"))
+        assertEquals(null, SharpIpPower.parse("ERR"))
         assertEquals(9, SharpIpCommands.encode("IRCO", "0267").size)
     }
 
@@ -138,6 +144,41 @@ class SharpIpControlTest {
             assertEquals("OK", control.command("POWR", "????"))
             thread.join(3000)
             assertEquals(2, accepted.get())
+        }
+    }
+
+    @Test
+    fun `the socket is closed before the tv idle teardown`() = runBlocking {
+        ServerSocket(0).use { server ->
+            val accepted = AtomicInteger(0)
+            val thread = Thread {
+                repeat(2) {
+                    val client = server.accept()
+                    accepted.incrementAndGet()
+                    val buf = ByteArray(9)
+                    readFully(client.getInputStream(), buf)
+                    client.getOutputStream().write("OK\r".toByteArray())
+                    client.getOutputStream().flush()
+                    if (it == 0) waitForPeerClose(client)
+                    client.close()
+                }
+            }
+            thread.start()
+            var now = 1_000L
+            val control = SharpIpControl(
+                hostProvider = { "127.0.0.1" },
+                port = server.localPort,
+                idleWindowMs = SharpIpCommands.LOCAL_IDLE_MS,
+                clock = { now },
+                sleeper = {}
+            )
+            assertEquals("OK", control.command("POWR", "????"))
+            now += SharpIpCommands.LOCAL_IDLE_MS
+            control.releaseIfIdle()
+            assertEquals("OK", control.command("POWR", "????"))
+            thread.join(3000)
+            assertEquals(2, accepted.get())
+            assertTrue(SharpIpCommands.LOCAL_IDLE_MS < SharpIpCommands.IDLE_WINDOW_MS)
         }
     }
 

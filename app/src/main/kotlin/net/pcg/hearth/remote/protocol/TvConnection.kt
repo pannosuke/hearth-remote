@@ -5,6 +5,7 @@ import android.util.Log
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import net.pcg.hearth.remote.R
+import kotlin.coroutines.cancellation.CancellationException
 import net.pcg.hearth.remote.data.SettingsRepository
 import net.pcg.hearth.remote.proto.RemoteProto.RemoteKeyCode
 import javax.net.ssl.SSLSocket
@@ -21,7 +22,7 @@ class TvConnection(private val context: Context) {
     private val settingsRepository = SettingsRepository(context)
     private val sharpIp = SharpIpControl(hostProvider = { settingsRepository.getTvHost() })
     private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    
+
     val connectionState = remoteProtocol.connectionState
     val lastError = remoteProtocol.lastError
     val closeReason = remoteProtocol.closeReason
@@ -31,7 +32,25 @@ class TvConnection(private val context: Context) {
 
     private val _tunerStatus = MutableStateFlow(TunerStatus())
     val tunerStatus: StateFlow<TunerStatus> = _tunerStatus.asStateFlow()
-    
+
+    private val _powerOn = MutableStateFlow<Boolean?>(null)
+    val powerOn: StateFlow<Boolean?> = _powerOn.asStateFlow()
+
+    init {
+        ioScope.launch {
+            var nextPowerAt = 0L
+            while (isActive) {
+                delay(5_000)
+                val now = System.currentTimeMillis()
+                if (now >= nextPowerAt) {
+                    nextPowerAt = now + 20_000
+                    refreshPower()
+                }
+                sharpIp.releaseIfIdle()
+            }
+        }
+    }
+
     private var pairingSocket: SSLSocket? = null
     
     sealed class PairingState {
@@ -185,7 +204,60 @@ class TvConnection(private val context: Context) {
     fun sendChannelUp() = sendKeyOrIp(RemoteKeyCode.KEYCODE_CHANNEL_UP, "CHUP", "")
     fun sendChannelDown() = sendKeyOrIp(RemoteKeyCode.KEYCODE_CHANNEL_DOWN, "CHDW", "")
     
-    fun sendPower() = remoteProtocol.sendKeyPress(RemoteKeyCode.KEYCODE_POWER)
+    fun note(line: String) = remoteProtocol.note(line)
+
+    fun togglePower() {
+        ioScope.launch {
+            if (connectionState.value is RemoteProtocol.ConnectionState.Connected) {
+                remoteProtocol.sendKeyPress(RemoteKeyCode.KEYCODE_POWER)
+                delay(700)
+                refreshPower()
+                return@launch
+            }
+            try {
+                sharpIp.exclusive { send ->
+                    val on = SharpIpPower.parse(send("POWR", "????"))
+                    if (on == null) {
+                        remoteProtocol.reportError(context.getString(R.string.ip_control_failed))
+                        return@exclusive
+                    }
+                    send("POWR", if (on) "0" else "1")
+                    val now = SharpIpPower.parse(send("POWR", "????"))
+                    if (now != null) _powerOn.value = now
+                    if (now == true) enablePowerOnOverIp(send)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Power toggle failed: ${e.message}")
+                remoteProtocol.reportError(context.getString(R.string.ip_control_failed))
+            }
+        }
+    }
+
+    private suspend fun refreshPower() {
+        try {
+            sharpIp.exclusive { send ->
+                val on = SharpIpPower.parse(send("POWR", "????"))
+                if (on != null) _powerOn.value = on
+                if (on == true) enablePowerOnOverIp(send)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: NoTvAddressException) {
+        } catch (e: Exception) {
+            Log.w(TAG, "Power query failed: ${e.message}")
+        }
+    }
+
+    private suspend fun enablePowerOnOverIp(send: suspend (String, String) -> String) {
+        if (settingsRepository.hasEnabledPowerOnIp()) return
+        val reply = send("RSPW", "2")
+        if (reply.isNotEmpty() && reply != "ERR") {
+            settingsRepository.setPowerOnIpEnabled()
+            Log.i(TAG, "RSPW2 enabled power-on over IP")
+        }
+    }
     fun sendPlayPause() = remoteProtocol.sendKeyPress(RemoteKeyCode.KEYCODE_MEDIA_PLAY_PAUSE)
     fun sendPlay() = remoteProtocol.sendKeyPress(RemoteKeyCode.KEYCODE_MEDIA_PLAY)
     fun sendPause() = remoteProtocol.sendKeyPress(RemoteKeyCode.KEYCODE_MEDIA_PAUSE)

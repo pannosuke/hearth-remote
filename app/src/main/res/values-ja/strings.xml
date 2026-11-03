@@ -39,6 +39,9 @@
     <string name="btn_home">ホーム</string>
     <string name="btn_menu">メニュー</string>
     <string name="btn_power">電源</string>
+    <string name="power_on">オン</string>
+    <string name="power_standby">待機</string>
+    <string name="power_unknown">電源</string>
     <string name="btn_play_pause">再生/一時停止</string>
     <string name="btn_volume_up">音量を上げる</string>
     <string name="btn_volume_down">音量を下げる</string>

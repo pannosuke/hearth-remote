@@ -12,7 +12,24 @@ class JellyfinTest {
     @Test
     fun `server url keeps the scheme and drops a trailing slash`() {
         assertEquals("http://192.168.10.114:8096", JellyfinApi.normalizeServerUrl("http://192.168.10.114:8096/"))
+        assertEquals("http://192.168.10.114:8096", JellyfinApi.normalizeServerUrl("http://192.168.10.114:8096///"))
         assertEquals("http://192.168.10.114:8096", JellyfinApi.normalizeServerUrl("192.168.10.114:8096"))
+        assertEquals(
+            "http://192.168.10.114:8096/Users/AuthenticateByName",
+            JellyfinApi.authenticateUrl("http://192.168.10.114:8096/")
+        )
+        assertEquals(
+            """{"Username":"Queen Bee","Pw":"secret"}""",
+            JellyfinApi.authBody("Queen Bee", "secret")
+        )
+        val header = JellyfinApi.embyAuthorization("phone", "0.2.4", "Hearth Remote")
+        assertEquals(
+            "MediaBrowser Client=\"Hearth Remote\", Device=\"Hearth Remote\", DeviceId=\"phone\", Version=\"0.2.4\"",
+            header
+        )
+        assertFalse(JellyfinApi.redact("""{"Pw":"s3cret-pw","AccessToken":"token-1"}""", "s3cret-pw").contains("s3cret-pw"))
+        assertFalse(JellyfinApi.redact("""{"AccessToken":"token-1"}""").contains("token-1"))
+        assertEquals("/Users/AuthenticateByName", JellyfinApi.logPath("http://192.168.10.114:8096/Users/AuthenticateByName"))
     }
 
     @Test
@@ -98,8 +115,9 @@ class JellyfinTest {
     fun `sign in keeps the token and drops the password`() = runBlocking {
         val store = MemoryStore()
         val transport = ScriptedTransport()
-        val remote = JellyfinRemote(store, transport, version = "0.2.3", clock = { 1_000L })
-        remote.signIn("http://192.168.10.114:8096/", "bee", PASSWORD)
+        val logs = mutableListOf<String>()
+        val remote = JellyfinRemote(store, transport, version = "0.2.3", clock = { 1_000L }, log = { logs += it })
+        remote.signIn("http://192.168.10.114:8096/", "Queen Bee", PASSWORD)
 
         val login = store.read()
         assertEquals("token-1", login?.accessToken)
@@ -108,11 +126,26 @@ class JellyfinTest {
         assertFalse(login.toString().contains(PASSWORD))
         assertEquals("Ted Lasso", remote.state.value.nowPlaying?.headline())
         assertEquals("ep-2", remote.state.value.upNext.single().itemId)
-        assertTrue(transport.calls.first().body!!.contains(PASSWORD))
+        val authCall = transport.calls.first()
+        assertEquals("http://192.168.10.114:8096/Users/AuthenticateByName", authCall.url)
+        assertTrue(authCall.body!!.contains("\"Username\":\"Queen Bee\""))
+        assertTrue(authCall.body!!.contains(PASSWORD))
+        val authorization = authCall.headers["Authorization"]!!
+        assertEquals(
+            "MediaBrowser Client=\"Hearth Remote\", Device=\"Hearth Remote\", DeviceId=\"phone\", Version=\"0.2.3\"",
+            authorization
+        )
+        assertFalse(authCall.headers.containsKey("X-Emby-Authorization"))
+        assertFalse(authorization.contains("Token="))
+        assertFalse(authorization.contains(PASSWORD))
         assertTrue(transport.calls.drop(1).all { call ->
-            call.body?.contains(PASSWORD) != true && call.headers["X-Emby-Token"] == "token-1"
+            call.body?.contains(PASSWORD) != true &&
+                call.headers["X-Emby-Token"] == "token-1" &&
+                call.headers["Authorization"]!!.contains("Token=\"token-1\"")
         })
         assertFalse(transport.calls.any { it.url.contains(PASSWORD) })
+        assertTrue(logs.any { it.contains("POST /Users/AuthenticateByName") })
+        assertTrue(logs.none { it.contains(PASSWORD) || it.contains("token-1") })
 
         remote.setSubtitle(SubtitleTrack.Japanese)
         remote.setSubtitle(SubtitleTrack.Off)
@@ -134,6 +167,41 @@ class JellyfinTest {
         assertNull(store.read())
         assertEquals(JellyfinProblem.Unauthorized, remote.state.value.problem)
         assertEquals("http://192.168.10.114:8096", store.serverUrl())
+        assertEquals("HTTP 401", remote.state.value.detail)
+    }
+
+    @Test
+    fun `sign in failure is logged without the password and shown under the button`() = runBlocking {
+        val logs = mutableListOf<String>()
+        val transport = ScriptedTransport()
+        transport.authCode = 401
+        transport.authError = """{"message":"nope","Pw":"$PASSWORD","AccessToken":"token-1"}"""
+        val remote = JellyfinRemote(MemoryStore(), transport, log = { logs += it })
+        remote.signIn("http://192.168.10.114:8096/", "Queen Bee", PASSWORD)
+        assertEquals(JellyfinProblem.SignInFailed, remote.state.value.problem)
+        val detail = remote.state.value.detail!!
+        assertTrue(detail.contains("401"))
+        assertFalse(detail.contains(PASSWORD))
+        assertFalse(detail.contains("token-1"))
+        assertTrue(logs.any { it.contains("/Users/AuthenticateByName") && it.contains("401") })
+        assertTrue(logs.none { it.contains(PASSWORD) || it.contains("token-1") })
+    }
+
+    @Test
+    fun `a cleartext exception is logged by class`() = runBlocking {
+        val logs = mutableListOf<String>()
+        val transport = object : JellyfinTransport {
+            override fun exchange(request: JellyfinCall): JellyfinResult {
+                throw java.io.IOException("Cleartext HTTP traffic to 192.168.10.114 not permitted")
+            }
+        }
+        val remote = JellyfinRemote(MemoryStore(), transport, log = { logs += it })
+        remote.signIn("http://host:8096", "Queen Bee", PASSWORD)
+        assertTrue(remote.state.value.detail!!.contains("IOException"))
+        assertTrue(remote.state.value.detail!!.contains("Cleartext"))
+        assertFalse(remote.state.value.detail!!.contains(PASSWORD))
+        assertTrue(logs.any { it.contains("IOException") && it.contains("Cleartext") })
+        assertTrue(logs.none { it.contains(PASSWORD) })
     }
 
     private class MemoryStore : JellyfinCredentialStore {
@@ -160,8 +228,13 @@ class JellyfinTest {
     private class ScriptedTransport : JellyfinTransport {
         val calls = mutableListOf<JellyfinCall>()
         var sessionsCode = 200
+        var authCode = 200
+        var authError = """{"message":"invalid"}"""
         override fun exchange(request: JellyfinCall): JellyfinResult {
             calls += request
+            if (request.url.endsWith("/Users/AuthenticateByName") && authCode !in 200..299) {
+                return JellyfinResult(authCode, authError.toByteArray())
+            }
             val body = when {
                 request.url.endsWith("/Users/AuthenticateByName") -> AUTH
                 request.url.endsWith("/Sessions") && sessionsCode != 200 -> return JellyfinResult(sessionsCode, ByteArray(0))

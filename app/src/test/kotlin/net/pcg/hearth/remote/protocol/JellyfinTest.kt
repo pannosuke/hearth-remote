@@ -22,9 +22,9 @@ class JellyfinTest {
             """{"Username":"Queen Bee","Pw":"secret"}""",
             JellyfinApi.authBody("Queen Bee", "secret")
         )
-        val header = JellyfinApi.embyAuthorization("phone", "0.2.4", "Hearth Remote")
+        val header = JellyfinApi.embyAuthorization("phone", "0.2.3")
         assertEquals(
-            "MediaBrowser Client=\"Hearth Remote\", Device=\"Hearth Remote\", DeviceId=\"phone\", Version=\"0.2.4\"",
+            "MediaBrowser Client=\"Hearth Remote\", Device=\"Hearth Remote\", DeviceId=\"phone\", Version=\"0.2.3\"",
             header
         )
         assertFalse(JellyfinApi.redact("""{"Pw":"s3cret-pw","AccessToken":"token-1"}""", "s3cret-pw").contains("s3cret-pw"))
@@ -130,18 +130,19 @@ class JellyfinTest {
         assertEquals("http://192.168.10.114:8096/Users/AuthenticateByName", authCall.url)
         assertTrue(authCall.body!!.contains("\"Username\":\"Queen Bee\""))
         assertTrue(authCall.body!!.contains(PASSWORD))
-        val authorization = authCall.headers["Authorization"]!!
+        val authorization = authCall.headers["X-Emby-Authorization"]!!
         assertEquals(
             "MediaBrowser Client=\"Hearth Remote\", Device=\"Hearth Remote\", DeviceId=\"phone\", Version=\"0.2.3\"",
             authorization
         )
-        assertFalse(authCall.headers.containsKey("X-Emby-Authorization"))
+        assertFalse(authCall.headers.containsKey("Authorization"))
         assertFalse(authorization.contains("Token="))
         assertFalse(authorization.contains(PASSWORD))
         assertTrue(transport.calls.drop(1).all { call ->
             call.body?.contains(PASSWORD) != true &&
                 call.headers["X-Emby-Token"] == "token-1" &&
-                call.headers["Authorization"]!!.contains("Token=\"token-1\"")
+                call.headers["X-Emby-Authorization"] == authorization &&
+                call.headers["Authorization"] == null
         })
         assertFalse(transport.calls.any { it.url.contains(PASSWORD) })
         assertTrue(logs.any { it.contains("POST /Users/AuthenticateByName") })

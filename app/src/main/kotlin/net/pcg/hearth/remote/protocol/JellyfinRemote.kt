@@ -16,12 +16,11 @@ import kotlinx.coroutines.flow.asStateFlow
 internal class JellyfinRemote(
     private val store: JellyfinCredentialStore,
     private val transport: JellyfinTransport,
-    version: String = "0.2.4",
-    private val deviceName: String = "Hearth Remote",
+    version: String = "0.2.3",
     private val clock: () -> Long = System::currentTimeMillis,
     private val log: (String) -> Unit = {}
 ) {
-    private val versionName = version.ifBlank { "0.2.4" }
+    private val versionName = version.ifBlank { "0.2.3" }
     private val mutex = Mutex()
     private val _state = MutableStateFlow(initialState())
     val state: StateFlow<JellyfinUiState> = _state.asStateFlow()
@@ -30,8 +29,7 @@ internal class JellyfinRemote(
         withContext(Dispatchers.IO) {
             mutex.withLock {
                 val url = JellyfinApi.normalizeServerUrl(rawUrl)
-                val name = username.trim()
-                if (url.isEmpty() || name.isEmpty()) {
+                if (url.isEmpty() || username.isBlank()) {
                     val detail = "Missing server or username"
                     log("← SignInFailed $detail")
                     _state.value = JellyfinUiState(
@@ -47,7 +45,7 @@ internal class JellyfinRemote(
                             method = "POST",
                             url = JellyfinApi.authenticateUrl(url),
                             headers = headers(token = null, json = true),
-                            body = JellyfinApi.authBody(name, password)
+                            body = JellyfinApi.authBody(username, password)
                         ),
                         secret = password
                     )
@@ -64,7 +62,7 @@ internal class JellyfinRemote(
                     val login = JellyfinLogin(
                         serverUrl = url,
                         userId = userId,
-                        userName = signedInName.ifBlank { name },
+                        userName = signedInName.ifBlank { username },
                         accessToken = token
                     )
                     store.write(login)
@@ -299,12 +297,7 @@ internal class JellyfinRemote(
         val headers = linkedMapOf(
             "Accept" to "application/json",
             "User-Agent" to "HearthRemote",
-            "Authorization" to JellyfinApi.embyAuthorization(
-                store.deviceId(),
-                versionName,
-                deviceName,
-                token
-            )
+            "X-Emby-Authorization" to JellyfinApi.embyAuthorization(store.deviceId(), versionName)
         )
         if (!token.isNullOrBlank()) headers["X-Emby-Token"] = token
         if (json) headers["Content-Type"] = "application/json"

@@ -38,7 +38,6 @@ fun HearthRemoteApp() {
             store = AndroidJellyfinStore(context),
             transport = HttpJellyfinTransport(),
             version = BuildConfig.VERSION_NAME,
-            deviceName = android.os.Build.MODEL.ifBlank { "Hearth Remote" },
             log = { line -> tvConnection.note(line) }
         )
     }

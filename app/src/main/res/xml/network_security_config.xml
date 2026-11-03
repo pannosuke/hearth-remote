@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- Jellyfin is plain HTTP to whatever host is typed in Settings, including a private LAN address such as 192.168.10.114. Domain rules do not match an IP literal, so cleartext is allowed for every host except the TV below. The TV remote stays TLS. The Jellyfin client also opens its own socket for http, so this policy cannot block that sign-in. -->
+    <!-- Jellyfin on the home LAN is plain HTTP to an address Eric types in. Android's domain rules do not match that IP, so cleartext is allowed. The TV remote stays TLS. -->
     <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system" />

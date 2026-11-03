@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.pcg.hearth.remote.R
 import net.pcg.hearth.remote.protocol.RemoteProtocol
@@ -31,8 +32,7 @@ import kotlin.math.abs
 
 @Composable
 fun TrackpadScreen(
-    tvConnection: TvConnection,
-    connectionState: RemoteProtocol.ConnectionState
+    tvConnection: TvConnection
 ) {
     val view = LocalView.current
     var lastDragX by remember { mutableFloatStateOf(0f) }
@@ -46,10 +46,6 @@ fun TrackpadScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        ConnectionStatus(connectionState)
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        
         // Power button row
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -253,35 +249,56 @@ fun TrackpadScreen(
 }
 
 @Composable
-fun ConnectionStatus(connectionState: RemoteProtocol.ConnectionState) {
+fun ConnectionStatus(
+    connectionState: RemoteProtocol.ConnectionState,
+    lastError: String? = null,
+    modifier: Modifier = Modifier
+) {
     val (text, color) = when (connectionState) {
-        is RemoteProtocol.ConnectionState.Connected -> 
+        is RemoteProtocol.ConnectionState.Connected ->
             stringResource(R.string.remote_connected) to Color(0xFF4CAF50)
-        is RemoteProtocol.ConnectionState.Connecting -> 
+        is RemoteProtocol.ConnectionState.Connecting ->
             stringResource(R.string.remote_reconnecting) to Color(0xFFFFC107)
-        is RemoteProtocol.ConnectionState.Disconnected -> 
+        is RemoteProtocol.ConnectionState.Disconnected ->
             stringResource(R.string.remote_disconnected) to Color(0xFFF44336)
-        is RemoteProtocol.ConnectionState.Error -> 
+        is RemoteProtocol.ConnectionState.Error ->
             connectionState.message to Color(0xFFF44336)
     }
-    
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-        modifier = Modifier.fillMaxWidth()
+    val showLastError = !lastError.isNullOrBlank() &&
+        (connectionState !is RemoteProtocol.ConnectionState.Error || connectionState.message != lastError)
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .clip(CircleShape)
-                .background(color)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelMedium,
-            color = color
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(color)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelMedium,
+                color = color,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        if (showLastError) {
+            Text(
+                text = stringResource(R.string.remote_last_error, lastError!!),
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFFF44336),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 

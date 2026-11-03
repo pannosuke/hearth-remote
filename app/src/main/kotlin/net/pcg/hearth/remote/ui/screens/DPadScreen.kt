@@ -22,13 +22,11 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import net.pcg.hearth.remote.R
-import net.pcg.hearth.remote.protocol.RemoteProtocol
 import net.pcg.hearth.remote.protocol.TvConnection
 
 @Composable
 fun DPadScreen(
-    tvConnection: TvConnection,
-    connectionState: RemoteProtocol.ConnectionState
+    tvConnection: TvConnection
 ) {
     val view = LocalView.current
     
@@ -38,10 +36,6 @@ fun DPadScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        ConnectionStatus(connectionState)
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        
         // Power button row
         Row(
             modifier = Modifier.fillMaxWidth(),

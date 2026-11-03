@@ -23,6 +23,8 @@
     <string name="remote_disconnected">切断</string>
     <string name="remote_reconnecting">再接続中…</string>
     <string name="remote_connected">接続済み</string>
+    <string name="remote_last_error">直前のエラー: %1$s</string>
+    <string name="ip_control_failed">シャープIP制御に失敗しました</string>
     
     <!-- Navigation -->
     <string name="nav_trackpad">トラックパッド</string>

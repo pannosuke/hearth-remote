@@ -16,6 +16,7 @@ class MainViewModel(
     
     val pairingState = tvConnection.pairingState
     val connectionState = tvConnection.connectionState
+    val lastError = tvConnection.lastError
     
     val isPaired: StateFlow<Boolean> = pairingState
         .map { state ->

@@ -11,6 +11,7 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.math.BigInteger
+import java.net.Socket
 import java.security.*
 import java.security.cert.Certificate
 import java.security.cert.CertificateFactory
@@ -219,29 +220,87 @@ class CertificateManager(private val context: Context) {
     }
     
     /**
-     * Create an SSLContext for TLS connections to the TV.
-     * Uses TLSv1.2 which is known to work with Android TV Remote Service.
+     * TLS context for both pairing (6467) and the remote session (6466).
+     *
+     * Both ports must present the same client certificate. The key lives in
+     * [PKCS12_FILENAME] under alias [KEY_ALIAS]. A default X509KeyManager can
+     * decline to send that cert when the TV's accepted-issuer list does not
+     * match a self-signed client, and the TV then completes TLS and silently
+     * ignores every command. [FixedAliasKeyManager] always selects [KEY_ALIAS].
      */
     fun createSSLContext(): SSLContext {
-        val (cert, key) = getOrCreateClientCertificate()
-        
-        val ks = KeyStore.getInstance("PKCS12")
-        ks.load(null, KEYSTORE_PASSWORD.toCharArray())
-        ks.setKeyEntry(KEY_ALIAS, key, KEYSTORE_PASSWORD.toCharArray(), arrayOf<Certificate>(cert))
-        
+        getOrCreateClientCertificate()
+        val ks = loadKeyStore()
+        if (!ks.containsAlias(KEY_ALIAS) || !ks.isKeyEntry(KEY_ALIAS)) {
+            throw IllegalStateException("Client certificate alias $KEY_ALIAS is missing")
+        }
+
         val kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm())
         kmf.init(ks, KEYSTORE_PASSWORD.toCharArray())
-        
+        val delegate = kmf.keyManagers.filterIsInstance<X509KeyManager>().firstOrNull()
+            ?: throw IllegalStateException("No X509 key manager for alias $KEY_ALIAS")
+        val keyManager = FixedAliasKeyManager(delegate, KEY_ALIAS)
+        val chain = keyManager.getCertificateChain(KEY_ALIAS)
+        val subject = chain?.firstOrNull()?.subjectX500Principal?.name ?: "missing"
+        Log.i(TAG, "TLS client cert alias=$KEY_ALIAS subject=$subject")
+
         val trustManager = object : X509TrustManager {
             override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
             override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
             override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
         }
-        
+
         val sslContext = SSLContext.getInstance("TLSv1.2")
-        sslContext.init(kmf.keyManagers, arrayOf(trustManager), SecureRandom())
-        
+        sslContext.init(arrayOf(keyManager), arrayOf(trustManager), SecureRandom())
+
         return sslContext
+    }
+
+    /**
+     * Always offers the pairing certificate, ignoring the TV's issuer list.
+     */
+    private class FixedAliasKeyManager(
+        private val delegate: X509KeyManager,
+        private val alias: String
+    ) : X509ExtendedKeyManager() {
+        override fun chooseClientAlias(
+            keyType: Array<out String>?,
+            issuers: Array<out Principal>?,
+            socket: Socket?
+        ): String = alias
+
+        override fun chooseEngineClientAlias(
+            keyType: Array<out String>?,
+            issuers: Array<out Principal>?,
+            engine: SSLEngine?
+        ): String = alias
+
+        override fun getCertificateChain(alias: String?): Array<X509Certificate>? =
+            delegate.getCertificateChain(this.alias)
+
+        override fun getPrivateKey(alias: String?): PrivateKey? =
+            delegate.getPrivateKey(this.alias)
+
+        override fun getClientAliases(keyType: String?, issuers: Array<out Principal>?): Array<String> =
+            arrayOf(alias)
+
+        override fun getServerAliases(keyType: String?, issuers: Array<out Principal>?): Array<String>? =
+            delegate.getServerAliases(keyType, issuers)
+
+        override fun chooseServerAlias(
+            keyType: String?,
+            issuers: Array<out Principal>?,
+            socket: Socket?
+        ): String? = delegate.chooseServerAlias(keyType, issuers, socket)
+
+        override fun chooseEngineServerAlias(
+            keyType: String?,
+            issuers: Array<out Principal>?,
+            engine: SSLEngine?
+        ): String? = when (delegate) {
+            is X509ExtendedKeyManager -> delegate.chooseEngineServerAlias(keyType, issuers, engine)
+            else -> null
+        }
     }
     
     /**

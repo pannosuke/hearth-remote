@@ -5,9 +5,6 @@ import java.net.URL
 
 internal class HttpJellyfinTransport : JellyfinTransport {
     override fun exchange(request: JellyfinCall): JellyfinResult {
-        if (request.url.startsWith("http://", ignoreCase = true)) {
-            return CleartextHttp.exchange(request)
-        }
         val connection = (URL(request.url).openConnection() as HttpURLConnection).apply {
             requestMethod = request.method
             connectTimeout = 8_000

@@ -161,18 +161,10 @@ internal object JellyfinApi {
         return url.trimEnd('/')
     }
 
-    fun embyAuthorization(
-        deviceId: String,
-        version: String,
-        deviceName: String = "Hearth Remote",
-        token: String? = null
-    ): String {
-        val safeDevice = headerToken(deviceId).ifBlank { "hearth" }
-        val safeName = headerToken(deviceName).ifBlank { "Hearth Remote" }
-        val safeVersion = headerToken(version).ifBlank { "0.2.4" }
-        val base = "MediaBrowser Client=\"Hearth Remote\", Device=\"$safeName\", DeviceId=\"$safeDevice\", Version=\"$safeVersion\""
-        val safeToken = token?.let { headerToken(it) }.orEmpty()
-        return if (safeToken.isEmpty()) base else "$base, Token=\"$safeToken\""
+    fun embyAuthorization(deviceId: String, version: String): String {
+        val safeDevice = deviceId.replace("\"", "")
+        val safeVersion = version.replace("\"", "").ifBlank { "0.2.3" }
+        return "MediaBrowser Client=\"Hearth Remote\", Device=\"Hearth Remote\", DeviceId=\"$safeDevice\", Version=\"$safeVersion\""
     }
 
     fun logPath(url: String): String {
@@ -204,9 +196,6 @@ internal object JellyfinApi {
         out = Regex("""(?i)Token="[^"]*"""").replace(out, "Token=\"redacted\"")
         return out.take(200)
     }
-
-    private fun headerToken(value: String): String =
-        value.replace("\"", "").replace("\r", "").replace("\n", "").trim()
 
     fun authBody(username: String, password: String): String {
         return """{"Username":${jsonString(username)},"Pw":${jsonString(password)}}"""

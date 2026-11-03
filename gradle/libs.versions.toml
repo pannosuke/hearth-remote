@@ -8,6 +8,7 @@ composeBom = "2024.11.00"
 protobuf = "0.9.4"
 protobufJavalite = "4.28.2"
 coroutines = "1.9.0"
+bouncycastle = "1.78.1"
 junit = "4.13.2"
 junitVersion = "1.2.1"
 mockk = "1.13.13"
@@ -33,6 +34,8 @@ junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
+bouncycastle-bcpkix = { group = "org.bouncycastle", name = "bcpkix-jdk18on", version.ref = "bouncycastle" }
+bouncycastle-bcprov = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

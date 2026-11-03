@@ -3,40 +3,66 @@ package net.pcg.hearth.remote.protocol
 import net.pcg.hearth.remote.proto.RemoteProto.RemoteAppLinkLaunchRequest
 import net.pcg.hearth.remote.proto.RemoteProto.RemoteConfigure
 import net.pcg.hearth.remote.proto.RemoteProto.RemoteDeviceInfo
+import net.pcg.hearth.remote.proto.RemoteProto.RemoteDirection
+import net.pcg.hearth.remote.proto.RemoteProto.RemoteKeyCode
+import net.pcg.hearth.remote.proto.RemoteProto.RemoteKeyInject
 import net.pcg.hearth.remote.proto.RemoteProto.RemoteMessage
+import net.pcg.hearth.remote.proto.RemoteProto.RemotePingResponse
 import net.pcg.hearth.remote.proto.RemoteProto.RemoteSetActive
 
 /**
- * Remote-session messages, matching tronikos/androidtvremote2.
+ * Remote-session messages for the Android TV remote port (6466).
  *
- * The TV speaks first. Its RemoteConfigure.code1 is a bitmask of features it
- * supports. The client answers with the intersection, then answers
- * RemoteSetActive with that same value. App launches are RemoteAppLinkLaunchRequest
- * (field 90) and are only valid after that handshake, which ends with RemoteStart.
+ * The TV speaks first. Reply to RemoteConfigure with [CLIENT_CODE] (622) and a
+ * device_info that includes model and vendor, then reply to RemoteSetActive
+ * with the same 622. This Sharp AQUOS accepts the TLS session and then ignores
+ * every key and app link when the client sends the intersected mask (615) and
+ * leaves model and vendor empty. 622 is KEY | IME | VOICE | POWER | VOLUME |
+ * APP_LINK, which is what louis49/androidtv-remote sends.
+ *
+ * Key presses are RemoteKeyInject (field 10) with direction SHORT (3).
+ * App launches are RemoteAppLinkLaunchRequest (field 90) and are only valid
+ * after RemoteStart.
  */
 internal object RemoteMessages {
     const val FEATURE_PING = 1 shl 0
     const val FEATURE_KEY = 1 shl 1
     const val FEATURE_IME = 1 shl 2
+    const val FEATURE_VOICE = 1 shl 3
     const val FEATURE_POWER = 1 shl 5
     const val FEATURE_VOLUME = 1 shl 6
     const val FEATURE_APP_LINK = 1 shl 9
 
-    /** PING | KEY | IME | POWER | VOLUME | APP_LINK = 615. */
+    /** PING | KEY | IME | POWER | VOLUME | APP_LINK = 615. Logged, not sent. */
     const val REQUESTED_FEATURES =
         FEATURE_PING or FEATURE_KEY or FEATURE_IME or FEATURE_POWER or FEATURE_VOLUME or FEATURE_APP_LINK
 
+    /** KEY | IME | VOICE | POWER | VOLUME | APP_LINK. */
+    const val CLIENT_CODE =
+        FEATURE_KEY or FEATURE_IME or FEATURE_VOICE or FEATURE_POWER or FEATURE_VOLUME or FEATURE_APP_LINK
+
+    const val CLIENT_MODEL = "Hearth Remote"
+    const val CLIENT_VENDOR = "PCG"
+    const val CLIENT_PACKAGE = "atvremote"
+    const val CLIENT_APP_VERSION = "1.0.0"
+
+    init {
+        check(CLIENT_CODE == 622)
+    }
+
     fun activeFeatures(deviceCode: Int): Int = REQUESTED_FEATURES and deviceCode
 
-    fun configureResponse(deviceCode: Int): RemoteMessage {
+    fun configureResponse(): RemoteMessage {
         val deviceInfo = RemoteDeviceInfo.newBuilder()
+            .setModel(CLIENT_MODEL)
+            .setVendor(CLIENT_VENDOR)
             .setUnknown1(1)
             .setUnknown2("1")
-            .setPackageName("atvremote")
-            .setAppVersion("1.0.0")
+            .setPackageName(CLIENT_PACKAGE)
+            .setAppVersion(CLIENT_APP_VERSION)
             .build()
         val configure = RemoteConfigure.newBuilder()
-            .setCode1(activeFeatures(deviceCode))
+            .setCode1(CLIENT_CODE)
             .setDeviceInfo(deviceInfo)
             .build()
         return RemoteMessage.newBuilder()
@@ -44,12 +70,34 @@ internal object RemoteMessages {
             .build()
     }
 
-    fun setActiveResponse(activeFeatures: Int): RemoteMessage {
+    fun setActiveResponse(): RemoteMessage {
         val setActive = RemoteSetActive.newBuilder()
-            .setActive(activeFeatures)
+            .setActive(CLIENT_CODE)
             .build()
         return RemoteMessage.newBuilder()
             .setRemoteSetActive(setActive)
+            .build()
+    }
+
+    fun pingResponse(val1: Int): RemoteMessage {
+        val response = RemotePingResponse.newBuilder()
+            .setVal1(val1)
+            .build()
+        return RemoteMessage.newBuilder()
+            .setRemotePingResponse(response)
+            .build()
+    }
+
+    fun keyInject(
+        keyCode: RemoteKeyCode,
+        direction: RemoteDirection = RemoteDirection.SHORT
+    ): RemoteMessage {
+        val key = RemoteKeyInject.newBuilder()
+            .setKeyCode(keyCode)
+            .setDirection(direction)
+            .build()
+        return RemoteMessage.newBuilder()
+            .setRemoteKeyInject(key)
             .build()
     }
 

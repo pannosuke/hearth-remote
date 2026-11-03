@@ -23,6 +23,8 @@
     <string name="remote_disconnected">Disconnected</string>
     <string name="remote_reconnecting">Reconnecting…</string>
     <string name="remote_connected">Connected</string>
+    <string name="remote_last_error">Last error: %1$s</string>
+    <string name="ip_control_failed">Sharp IP control failed</string>
     
     <!-- Navigation -->
     <string name="nav_trackpad">Trackpad</string>

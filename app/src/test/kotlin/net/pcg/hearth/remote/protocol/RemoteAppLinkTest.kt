@@ -21,18 +21,23 @@ class RemoteAppLinkTest {
     }
 
     @Test
-    fun `configure response uses the intersected feature mask`() {
-        val message = RemoteMessages.configureResponse(639)
-        assertEquals(615, message.remoteConfigure.code1)
-        assertEquals("atvremote", message.remoteConfigure.deviceInfo.packageName)
-        assertEquals("1.0.0", message.remoteConfigure.deviceInfo.appVersion)
+    fun `configure response is code 622 with model and vendor`() {
+        val message = RemoteMessages.configureResponse()
+        assertEquals(622, message.remoteConfigure.code1)
+        val info = message.remoteConfigure.deviceInfo
+        assertEquals("Hearth Remote", info.model)
+        assertEquals("PCG", info.vendor)
+        assertEquals(1, info.unknown1)
+        assertEquals("1", info.unknown2)
+        assertEquals("atvremote", info.packageName)
+        assertEquals("1.0.0", info.appVersion)
         assertFalse(message.hasRemoteAppLinkLaunchRequest())
     }
 
     @Test
-    fun `set active echoes the negotiated features`() {
-        val message = RemoteMessages.setActiveResponse(615)
-        assertEquals(615, message.remoteSetActive.active)
+    fun `set active is 622`() {
+        val message = RemoteMessages.setActiveResponse()
+        assertEquals(622, message.remoteSetActive.active)
     }
 
     @Test

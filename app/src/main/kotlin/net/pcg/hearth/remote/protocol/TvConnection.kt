@@ -1,20 +1,29 @@
 package net.pcg.hearth.remote.protocol
 
 import android.content.Context
+import android.util.Log
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import net.pcg.hearth.remote.R
 import net.pcg.hearth.remote.data.SettingsRepository
 import net.pcg.hearth.remote.proto.RemoteProto.RemoteKeyCode
 import javax.net.ssl.SSLSocket
 
-class TvConnection(context: Context) {
+class TvConnection(private val context: Context) {
+
+    companion object {
+        private const val TAG = "TvConnection"
+    }
     
     private val certificateManager = CertificateManager(context)
     private val pairingProtocol = PairingProtocol(certificateManager)
     private val remoteProtocol = RemoteProtocol(certificateManager)
     private val settingsRepository = SettingsRepository(context)
+    private val sharpIp = SharpIpControl(hostProvider = { settingsRepository.getTvHost() })
+    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
     val connectionState = remoteProtocol.connectionState
+    val lastError = remoteProtocol.lastError
     val volumeState = remoteProtocol.volumeState
     
     private var pairingSocket: SSLSocket? = null
@@ -142,15 +151,33 @@ class TvConnection(context: Context) {
     fun sendDpadCenter() = remoteProtocol.sendKeyPress(RemoteKeyCode.KEYCODE_DPAD_CENTER)
     
     fun sendBack() = remoteProtocol.sendKeyPress(RemoteKeyCode.KEYCODE_BACK)
-    fun sendHome() = remoteProtocol.sendKeyPress(RemoteKeyCode.KEYCODE_HOME)
+    fun sendHome() = sendKeyOrIp(RemoteKeyCode.KEYCODE_HOME, "IRCO", SharpIpCommands.HOME)
     fun sendMenu() = remoteProtocol.sendKeyPress(RemoteKeyCode.KEYCODE_MENU)
+
+    /**
+     * Volume, mute, home, and channel go out on Sharp IP control first.
+     * That port is confirmed on this TV. The Android TV key is sent only when
+     * IP control does not answer, so a working command is not applied twice.
+     */
+    private fun sendKeyOrIp(key: RemoteKeyCode, command: String, param: String) {
+        ioScope.launch {
+            val ipOk = sharpIp.tryCommand(command, param)
+            if (ipOk) {
+                Log.i(TAG, "Sharp IP $command $param")
+            } else {
+                Log.w(TAG, "Sharp IP $command failed, sending ${key.name}")
+                remoteProtocol.reportError(context.getString(R.string.ip_control_failed))
+                remoteProtocol.sendKeyPress(key)
+            }
+        }
+    }
     
-    fun sendVolumeUp() = remoteProtocol.sendKeyPress(RemoteKeyCode.KEYCODE_VOLUME_UP)
-    fun sendVolumeDown() = remoteProtocol.sendKeyPress(RemoteKeyCode.KEYCODE_VOLUME_DOWN)
-    fun sendVolumeMute() = remoteProtocol.sendKeyPress(RemoteKeyCode.KEYCODE_VOLUME_MUTE)
+    fun sendVolumeUp() = sendKeyOrIp(RemoteKeyCode.KEYCODE_VOLUME_UP, "IRCO", SharpIpCommands.VOLUME_UP)
+    fun sendVolumeDown() = sendKeyOrIp(RemoteKeyCode.KEYCODE_VOLUME_DOWN, "IRCO", SharpIpCommands.VOLUME_DOWN)
+    fun sendVolumeMute() = sendKeyOrIp(RemoteKeyCode.KEYCODE_VOLUME_MUTE, "MUTE", "0")
     
-    fun sendChannelUp() = remoteProtocol.sendKeyPress(RemoteKeyCode.KEYCODE_CHANNEL_UP)
-    fun sendChannelDown() = remoteProtocol.sendKeyPress(RemoteKeyCode.KEYCODE_CHANNEL_DOWN)
+    fun sendChannelUp() = sendKeyOrIp(RemoteKeyCode.KEYCODE_CHANNEL_UP, "CHUP", "")
+    fun sendChannelDown() = sendKeyOrIp(RemoteKeyCode.KEYCODE_CHANNEL_DOWN, "CHDW", "")
     
     fun sendPower() = remoteProtocol.sendKeyPress(RemoteKeyCode.KEYCODE_POWER)
     fun sendPlayPause() = remoteProtocol.sendKeyPress(RemoteKeyCode.KEYCODE_MEDIA_PLAY_PAUSE)

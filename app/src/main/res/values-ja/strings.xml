@@ -27,6 +27,7 @@
     <string name="ip_control_failed">シャープIP制御に失敗しました</string>
     
     <!-- Navigation -->
+    <string name="nav_remote">リモコン</string>
     <string name="nav_trackpad">トラックパッド</string>
     <string name="nav_dpad">十字キー</string>
     <string name="nav_apps">アプリ</string>
@@ -44,6 +45,22 @@
     <string name="btn_volume_mute">ミュート</string>
     <string name="btn_channel_up">チャンネル+</string>
     <string name="btn_channel_down">チャンネル-</string>
+    <string name="btn_subtitles">字幕</string>
+    <string name="live_tv_title">地上波</string>
+    <string name="generic_remote_title">リモコン</string>
+    <string name="mute_on">ミュート中</string>
+    <string name="mute_off">音声オン</string>
+    <string name="channel_unknown">チャンネルなし</string>
+    <string name="channel_button">ボタン %1$d</string>
+    <string name="now_playing_placeholder">いまの番組</string>
+    <string name="ch_ytv">読売テレビ</string>
+    <string name="ch_ktv">関西テレビ</string>
+    <string name="ch_tvo">テレビ大阪</string>
+    <string name="ch_abc">ABC</string>
+    <string name="ch_nhk">NHK総合</string>
+    <string name="ch_nhk_e">NHK Eテレ</string>
+    <string name="ch_mbs">MBS</string>
+    <string name="ch_sun">サンテレビ</string>
     
     <!-- Apps -->
     <string name="apps_title">アプリを起動</string>

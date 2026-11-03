@@ -65,7 +65,7 @@ class RemoteAppLinkTest {
         assertEquals("jp.co.tver.tvapp", packageId(TvAppLinks.TVER))
         assertEquals("jp.nhk.plus.tv", packageId(TvAppLinks.NHK))
         assertEquals("jp.happyon.android", packageId(TvAppLinks.HULU))
-        assertEquals("com.google.android.tv", packageId(TvAppLinks.LIVE_TV))
+        assertEquals("jp.co.sharp.av.android.aquostvapp", packageId(TvAppLinks.LIVE_TV))
     }
 
     private fun packageId(link: String): String = link.substringAfter("id=")

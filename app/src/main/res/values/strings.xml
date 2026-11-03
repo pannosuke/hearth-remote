@@ -27,6 +27,7 @@
     <string name="ip_control_failed">Sharp IP control failed</string>
     
     <!-- Navigation -->
+    <string name="nav_remote">Remote</string>
     <string name="nav_trackpad">Trackpad</string>
     <string name="nav_dpad">D-Pad</string>
     <string name="nav_apps">Apps</string>
@@ -44,6 +45,22 @@
     <string name="btn_volume_mute">Mute</string>
     <string name="btn_channel_up">Channel Up</string>
     <string name="btn_channel_down">Channel Down</string>
+    <string name="btn_subtitles">Subtitles</string>
+    <string name="live_tv_title">Terrestrial</string>
+    <string name="generic_remote_title">Remote</string>
+    <string name="mute_on">Muted</string>
+    <string name="mute_off">Sound on</string>
+    <string name="channel_unknown">No channel</string>
+    <string name="channel_button">Button %1$d</string>
+    <string name="now_playing_placeholder">What\'s on now</string>
+    <string name="ch_ytv">YTV</string>
+    <string name="ch_ktv">KTV</string>
+    <string name="ch_tvo">TVO</string>
+    <string name="ch_abc">ABC</string>
+    <string name="ch_nhk">NHK</string>
+    <string name="ch_nhk_e">NHK E</string>
+    <string name="ch_mbs">MBS</string>
+    <string name="ch_sun">SUN</string>
     
     <!-- Apps -->
     <string name="apps_title">Launch App</string>

@@ -251,17 +251,7 @@ class CertificateManager(private val context: Context) {
     fun getClientCertModulusAndExponent(): Pair<ByteArray, ByteArray> {
         val (cert, _) = getOrCreateClientCertificate()
         val rsaKey = cert.publicKey as RSAPublicKey
-        
-        var modulus = rsaKey.modulus.toByteArray()
-        if (modulus.isNotEmpty() && modulus[0] == 0.toByte()) {
-            modulus = modulus.copyOfRange(1, modulus.size)
-        }
-        
-        var exponent = rsaKey.publicExponent.toByteArray()
-        while (exponent.size < 3) {
-            exponent = byteArrayOf(0) + exponent
-        }
-        
-        return modulus to exponent
+        return PairingSecret.modulusBytes(rsaKey.modulus) to
+            PairingSecret.exponentBytes(rsaKey.publicExponent)
     }
 }

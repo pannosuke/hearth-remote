@@ -45,7 +45,7 @@ class CertificateManager(private val context: Context) {
         private const val PREFS_NAME = "hearth_remote_certs"
         private const val PREF_SERVER_CERT = "server_cert"
         private const val PREF_CERT_VERSION = "cert_version"
-        private const val CURRENT_CERT_VERSION = 3
+        private const val CURRENT_CERT_VERSION = 4
         
         private val bcProvider = BouncyCastleProvider()
     }

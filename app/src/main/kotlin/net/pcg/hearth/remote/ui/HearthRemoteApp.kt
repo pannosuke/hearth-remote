@@ -64,8 +64,8 @@ fun HearthRemoteApp() {
                         )
                         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                             when (currentScreen) {
+                                Screen.Remote -> RemoteShell(tvConnection = tvConnection)
                                 Screen.Trackpad -> TrackpadScreen(tvConnection = tvConnection)
-                                Screen.DPad -> DPadScreen(tvConnection = tvConnection)
                                 Screen.Apps -> AppsScreen(tvConnection = tvConnection)
                                 Screen.Settings -> SettingsScreen(
                                     tvConnection = tvConnection,
@@ -89,5 +89,5 @@ fun HearthRemoteApp() {
 }
 
 enum class Screen {
-    Trackpad, DPad, Apps, Settings, SessionLog
+    Remote, Trackpad, Apps, Settings, SessionLog
 }

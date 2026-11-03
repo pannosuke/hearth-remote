@@ -11,7 +11,7 @@ class MainViewModel(
     private val tvConnection: TvConnection
 ) : ViewModel() {
     
-    private val _currentScreen = MutableStateFlow(Screen.Trackpad)
+    private val _currentScreen = MutableStateFlow(Screen.Remote)
     val currentScreen: StateFlow<Screen> = _currentScreen.asStateFlow()
     
     val pairingState = tvConnection.pairingState

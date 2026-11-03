@@ -14,16 +14,16 @@ fun NavigationBar(
 ) {
     NavigationBar {
         NavigationBarItem(
+            icon = { Icon(Icons.Default.LiveTv, contentDescription = null) },
+            label = { Text(stringResource(R.string.nav_remote)) },
+            selected = currentScreen == Screen.Remote,
+            onClick = { onNavigate(Screen.Remote) }
+        )
+        NavigationBarItem(
             icon = { Icon(Icons.Default.TouchApp, contentDescription = null) },
             label = { Text(stringResource(R.string.nav_trackpad)) },
             selected = currentScreen == Screen.Trackpad,
             onClick = { onNavigate(Screen.Trackpad) }
-        )
-        NavigationBarItem(
-            icon = { Icon(Icons.Default.Gamepad, contentDescription = null) },
-            label = { Text(stringResource(R.string.nav_dpad)) },
-            selected = currentScreen == Screen.DPad,
-            onClick = { onNavigate(Screen.DPad) }
         )
         NavigationBarItem(
             icon = { Icon(Icons.Default.Apps, contentDescription = null) },

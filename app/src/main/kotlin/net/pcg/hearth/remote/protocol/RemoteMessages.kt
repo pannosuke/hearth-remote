@@ -123,5 +123,5 @@ internal object TvAppLinks {
     const val TVER = "market://launch?id=jp.co.tver.tvapp"
     const val NHK = "market://launch?id=jp.nhk.plus.tv"
     const val HULU = "market://launch?id=jp.happyon.android"
-    const val LIVE_TV = "market://launch?id=com.google.android.tv"
+    const val LIVE_TV = "market://launch?id=jp.co.sharp.av.android.aquostvapp"
 }

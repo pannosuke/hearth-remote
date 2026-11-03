@@ -56,6 +56,9 @@ class RemoteProtocol(
     private val _volumeState = MutableStateFlow<VolumeState?>(null)
     val volumeState: StateFlow<VolumeState?> = _volumeState.asStateFlow()
 
+    private val _currentAppPackage = MutableStateFlow<String?>(null)
+    val currentAppPackage: StateFlow<String?> = _currentAppPackage.asStateFlow()
+
     private val commandChannel = Channel<RemoteMessage>(Channel.BUFFERED)
     private val pendingCommands = ArrayDeque<RemoteMessage>()
     private var sessionReady = false
@@ -279,6 +282,13 @@ class RemoteProtocol(
             }
             message.hasRemotePingRequest() -> {
                 sendMessageSync(RemoteMessages.pingResponse(message.remotePingRequest.val1))
+            }
+            message.hasRemoteImeKeyInject() -> {
+                val pkg = message.remoteImeKeyInject.appInfo.appPackage
+                if (pkg.isNotBlank()) {
+                    Log.i(TAG, "Foreground app $pkg")
+                    _currentAppPackage.value = pkg
+                }
             }
             message.hasRemoteSetVolumeLevel() -> {
                 val volume = message.remoteSetVolumeLevel

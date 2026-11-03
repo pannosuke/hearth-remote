@@ -25,6 +25,7 @@ internal object SharpIpCommands {
     const val VOLUME_UP = "0114"
     const val VOLUME_DOWN = "0115"
     const val MUTE_KEY = "0117"
+    const val SUBTITLE = "0267"
     const val HOME = "02BB"
     const val CHANNEL_UP = "0111"
     const val CHANNEL_DOWN = "0112"
@@ -47,8 +48,20 @@ internal class SharpIpControl(
     private val mutex = Mutex()
 
     suspend fun command(command: String, param: String): String = mutex.withLock {
+        exchange(command, param)
+    }
+
+    /**
+     * Run several commands without letting another caller take the only
+     * session in between, so a read-modify-write of VOLM cannot interleave.
+     */
+    suspend fun <T> exclusive(block: suspend (suspend (String, String) -> String) -> T): T {
+        return mutex.withLock { block { command, param -> exchange(command, param) } }
+    }
+
+    private suspend fun exchange(command: String, param: String): String {
         val host = hostProvider() ?: throw IOException("No TV address")
-        withContext(Dispatchers.IO) {
+        return withContext(Dispatchers.IO) {
             Socket().use { socket ->
                 socket.connect(InetSocketAddress(host, port), connectTimeoutMs)
                 socket.tcpNoDelay = true

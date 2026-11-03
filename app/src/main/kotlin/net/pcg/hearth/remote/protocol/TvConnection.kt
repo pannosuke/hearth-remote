@@ -27,6 +27,10 @@ class TvConnection(private val context: Context) {
     val closeReason = remoteProtocol.closeReason
     val sessionLog = remoteProtocol.sessionLog
     val volumeState = remoteProtocol.volumeState
+    val currentAppPackage = remoteProtocol.currentAppPackage
+
+    private val _tunerStatus = MutableStateFlow(TunerStatus())
+    val tunerStatus: StateFlow<TunerStatus> = _tunerStatus.asStateFlow()
     
     private var pairingSocket: SSLSocket? = null
     
@@ -217,4 +221,99 @@ class TvConnection(private val context: Context) {
     fun launchNhk() = launchApp(TvAppLinks.NHK)
     fun launchHulu() = launchApp(TvAppLinks.HULU)
     fun launchLiveTv() = launchApp(TvAppLinks.LIVE_TV)
+
+    suspend fun refreshTuner() {
+        try {
+            sharpIp.exclusive { send ->
+                val volume = send("VOLM", "????").toIntOrNull()
+                val mute = send("MUTE", "????").toIntOrNull()
+                val channel = send("CHRC", "????").takeUnless { it.isEmpty() || it == "ERR" }
+                _tunerStatus.value = TunerStatus(volume, mute, channel)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Tuner refresh failed: ${e.message}")
+        }
+    }
+
+    fun nudgeVolume(delta: Int) {
+        ioScope.launch {
+            try {
+                sharpIp.exclusive { send ->
+                    val current = _tunerStatus.value.volume ?: send("VOLM", "????").toIntOrNull()
+                    if (current == null) {
+                        val key = if (delta > 0) SharpIpCommands.VOLUME_UP else SharpIpCommands.VOLUME_DOWN
+                        send("IRCO", key)
+                        return@exclusive
+                    }
+                    val next = (current + delta).coerceIn(0, 100)
+                    val reply = send("VOLM", next.toString())
+                    if (reply == "ERR") {
+                        val key = if (delta > 0) SharpIpCommands.VOLUME_UP else SharpIpCommands.VOLUME_DOWN
+                        send("IRCO", key)
+                    } else {
+                        _tunerStatus.value = _tunerStatus.value.copy(volume = next)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Volume change failed: ${e.message}")
+                remoteProtocol.reportError(context.getString(R.string.ip_control_failed))
+            }
+        }
+    }
+
+    fun toggleTunerMute() {
+        ioScope.launch {
+            try {
+                sharpIp.exclusive { send ->
+                    send("MUTE", "0")
+                    val mute = send("MUTE", "????").toIntOrNull()
+                    _tunerStatus.value = _tunerStatus.value.copy(mute = mute)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Mute failed: ${e.message}")
+                remoteProtocol.reportError(context.getString(R.string.ip_control_failed))
+            }
+        }
+    }
+
+    fun stepChannel(up: Boolean) {
+        ioScope.launch {
+            try {
+                sharpIp.exclusive { send ->
+                    send(if (up) "CHUP" else "CHDW", "")
+                    val channel = send("CHRC", "????").takeUnless { it.isEmpty() || it == "ERR" }
+                    if (channel != null) {
+                        _tunerStatus.value = _tunerStatus.value.copy(channel = channel)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Channel step failed: ${e.message}")
+                remoteProtocol.reportError(context.getString(R.string.ip_control_failed))
+            }
+        }
+    }
+
+    fun selectChannel(button: Int) {
+        ioScope.launch {
+            try {
+                sharpIp.exclusive { send ->
+                    send("CHRC", OsakaChannels.chrcCommand(button))
+                    val channel = send("CHRC", "????").takeUnless { it.isEmpty() || it == "ERR" }
+                    _tunerStatus.value = _tunerStatus.value.copy(channel = channel ?: "TB$button")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Channel select failed: ${e.message}")
+                remoteProtocol.reportError(context.getString(R.string.ip_control_failed))
+            }
+        }
+    }
+
+    fun toggleSubtitles() {
+        ioScope.launch {
+            val ok = sharpIp.tryCommand("IRCO", SharpIpCommands.SUBTITLE)
+            if (!ok) {
+                remoteProtocol.reportError(context.getString(R.string.ip_control_failed))
+            }
+        }
+    }
 }

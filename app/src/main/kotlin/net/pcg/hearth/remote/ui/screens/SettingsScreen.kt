@@ -11,15 +11,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import net.pcg.hearth.remote.BuildConfig
 import net.pcg.hearth.remote.R
 import net.pcg.hearth.remote.data.SettingsRepository
+import net.pcg.hearth.remote.protocol.JellyfinProblem
+import net.pcg.hearth.remote.protocol.JellyfinRemote
 import net.pcg.hearth.remote.protocol.TvConnection
 
 @Composable
-fun SettingsScreen(
+internal fun SettingsScreen(
     tvConnection: TvConnection,
+    jellyfin: JellyfinRemote,
     onOpenLog: () -> Unit,
     onForgetPairing: () -> Unit
 ) {
@@ -29,6 +34,12 @@ fun SettingsScreen(
     
     var showForgetDialog by remember { mutableStateOf(false) }
     var subtitleMacro by remember { mutableStateOf(settingsRepository.getSubtitleMacro()) }
+    val jellyfinState by jellyfin.state.collectAsState()
+    val scope = rememberCoroutineScope()
+    var jellyfinUrl by remember { mutableStateOf(jellyfinState.serverUrl) }
+    var jellyfinUser by remember { mutableStateOf("") }
+    var jellyfinPassword by remember { mutableStateOf("") }
+    var jellyfinBusy by remember { mutableStateOf(false) }
     
     Column(
         modifier = Modifier
@@ -56,6 +67,83 @@ fun SettingsScreen(
             }
         )
         
+        HorizontalDivider()
+
+        Text(
+            text = stringResource(R.string.jellyfin_title),
+            style = MaterialTheme.typography.titleMedium
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedTextField(
+            value = jellyfinUrl,
+            onValueChange = { jellyfinUrl = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(stringResource(R.string.settings_jellyfin_url)) },
+            placeholder = { Text(stringResource(R.string.settings_jellyfin_url_hint)) },
+            singleLine = true
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedTextField(
+            value = jellyfinUser,
+            onValueChange = { jellyfinUser = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(stringResource(R.string.settings_jellyfin_username)) },
+            singleLine = true
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedTextField(
+            value = jellyfinPassword,
+            onValueChange = { jellyfinPassword = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(stringResource(R.string.settings_jellyfin_password)) },
+            visualTransformation = PasswordVisualTransformation(),
+            singleLine = true
+        )
+        if (jellyfinState.signedIn && jellyfinState.userName != null) {
+            Text(
+                text = stringResource(R.string.settings_jellyfin_signed_in, jellyfinState.userName!!),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        val jellyfinMessage = when (jellyfinState.problem) {
+            JellyfinProblem.SignInFailed -> stringResource(R.string.settings_jellyfin_failed)
+            JellyfinProblem.Unauthorized -> stringResource(R.string.settings_jellyfin_unauthorized)
+            else -> null
+        }
+        if (jellyfinMessage != null) {
+            Text(
+                text = jellyfinMessage,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = {
+                    jellyfinBusy = true
+                    val password = jellyfinPassword
+                    scope.launch {
+                        try {
+                            jellyfin.signIn(jellyfinUrl, jellyfinUser, password)
+                            if (jellyfin.state.value.signedIn) jellyfinPassword = ""
+                        } finally {
+                            jellyfinBusy = false
+                        }
+                    }
+                },
+                enabled = !jellyfinBusy && jellyfinUrl.isNotBlank() && jellyfinUser.isNotBlank()
+            ) {
+                Text(stringResource(R.string.settings_jellyfin_sign_in))
+            }
+            if (jellyfinState.signedIn) {
+                TextButton(onClick = { scope.launch { jellyfin.signOut() } }) {
+                    Text(stringResource(R.string.settings_jellyfin_sign_out))
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
         HorizontalDivider()
 
         TextButton(

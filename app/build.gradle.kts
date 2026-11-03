@@ -105,6 +105,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.bouncycastle.bcpkix)
     implementation(libs.bouncycastle.bcprov)
+    implementation(libs.androidx.security.crypto)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

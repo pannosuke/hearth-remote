@@ -8,6 +8,9 @@ package net.pcg.hearth.remote.protocol
  */
 internal object Foreground {
     const val LIVE_TV_PACKAGE = "jp.co.sharp.av.android.aquostvapp"
+    const val JELLYFIN_PACKAGE = "org.jellyfin.androidtv"
+
+    fun isJellyfin(packageName: String?): Boolean = packageName == JELLYFIN_PACKAGE
 
     fun isTerrestrial(packageName: String?, channel: String?): Boolean {
         if (packageName == LIVE_TV_PACKAGE) return true

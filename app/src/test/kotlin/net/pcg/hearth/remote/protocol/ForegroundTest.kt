@@ -15,6 +15,14 @@ class ForegroundTest {
     }
 
     @Test
+    fun `jellyfin package selects the jellyfin remote`() {
+        assertTrue(Foreground.isJellyfin(Foreground.JELLYFIN_PACKAGE))
+        assertTrue(Foreground.isJellyfin("org.jellyfin.androidtv"))
+        assertFalse(Foreground.isJellyfin("com.google.android.youtube.tv"))
+        assertFalse(Foreground.isJellyfin(null))
+    }
+
+    @Test
     fun `a known app stays generic even when the tuner still reports TB`() {
         assertFalse(Foreground.isTerrestrial("com.google.android.youtube.tv", "TB10"))
         assertFalse(Foreground.isTerrestrial("org.jellyfin.androidtv", "TB10"))

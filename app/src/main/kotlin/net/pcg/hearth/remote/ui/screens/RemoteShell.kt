@@ -31,6 +31,7 @@ import kotlinx.coroutines.isActive
 import net.pcg.hearth.remote.R
 import net.pcg.hearth.remote.protocol.Foreground
 import net.pcg.hearth.remote.protocol.GuideState
+import net.pcg.hearth.remote.protocol.JellyfinRemote
 import net.pcg.hearth.remote.protocol.GuideStatus
 import net.pcg.hearth.remote.protocol.NowAndNext
 import net.pcg.hearth.remote.protocol.OsakaChannels
@@ -40,7 +41,12 @@ import net.pcg.hearth.remote.protocol.TvConnection
 import net.pcg.hearth.remote.protocol.XmltvGuide
 
 @Composable
-internal fun RemoteShell(tvConnection: TvConnection, guide: OsakaGuide) {
+internal fun RemoteShell(
+    tvConnection: TvConnection,
+    guide: OsakaGuide,
+    jellyfin: JellyfinRemote,
+    onOpenSettings: () -> Unit
+) {
     val packageName by tvConnection.currentAppPackage.collectAsState()
     val tuner by tvConnection.tunerStatus.collectAsState()
     val terrestrial = Foreground.isTerrestrial(packageName, tuner.channel)
@@ -54,10 +60,10 @@ internal fun RemoteShell(tvConnection: TvConnection, guide: OsakaGuide) {
         }
     }
 
-    if (terrestrial) {
-        TerrestrialScreen(tvConnection, guide)
-    } else {
-        GenericRemoteScreen(tvConnection, packageName)
+    when {
+        terrestrial -> TerrestrialScreen(tvConnection, guide)
+        Foreground.isJellyfin(packageName) -> JellyfinScreen(tvConnection, jellyfin, onOpenSettings)
+        else -> GenericRemoteScreen(tvConnection, packageName)
     }
 }
 

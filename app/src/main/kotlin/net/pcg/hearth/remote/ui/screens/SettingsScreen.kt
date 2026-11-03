@@ -18,6 +18,7 @@ import net.pcg.hearth.remote.protocol.TvConnection
 @Composable
 fun SettingsScreen(
     tvConnection: TvConnection,
+    onOpenLog: () -> Unit,
     onForgetPairing: () -> Unit
 ) {
     val context = LocalContext.current
@@ -47,6 +48,17 @@ fun SettingsScreen(
             }
         )
         
+        HorizontalDivider()
+
+        TextButton(
+            onClick = onOpenLog,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Default.BugReport, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(stringResource(R.string.settings_connection_log))
+        }
+
         HorizontalDivider()
         
         // Forget Pairing

@@ -21,23 +21,25 @@ class RemoteAppLinkTest {
     }
 
     @Test
-    fun `configure response is code 622 with model and vendor`() {
-        val message = RemoteMessages.configureResponse()
-        assertEquals(622, message.remoteConfigure.code1)
+    fun `configure response intersects the device code and omits model and vendor`() {
+        val message = RemoteMessages.configureResponse(639)
+        assertEquals(615, message.remoteConfigure.code1)
         val info = message.remoteConfigure.deviceInfo
-        assertEquals("Hearth Remote", info.model)
-        assertEquals("PCG", info.vendor)
+        assertEquals("", info.model)
+        assertEquals("", info.vendor)
         assertEquals(1, info.unknown1)
         assertEquals("1", info.unknown2)
         assertEquals("atvremote", info.packageName)
         assertEquals("1.0.0", info.appVersion)
         assertFalse(message.hasRemoteAppLinkLaunchRequest())
+        // 622 includes voice and drops ping. The reply keeps only shared bits.
+        assertEquals(614, RemoteMessages.configureResponse(622).remoteConfigure.code1)
     }
 
     @Test
-    fun `set active is 622`() {
-        val message = RemoteMessages.setActiveResponse()
-        assertEquals(622, message.remoteSetActive.active)
+    fun `set active repeats the negotiated mask`() {
+        val message = RemoteMessages.setActiveResponse(615)
+        assertEquals(615, message.remoteSetActive.active)
     }
 
     @Test

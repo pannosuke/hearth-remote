@@ -108,23 +108,64 @@ internal object RemoteMessages {
     }
 
     /**
-     * A bare package name becomes market://launch?id=…, which is how
-     * androidtvremote2 launches apps that have no https link. URLs that
-     * already have a scheme, including https://www.youtube.com, are sent as-is.
+     * The TV parses [appLinkOrId] with `Intent.parseUri(URI_INTENT_SCHEME)`.
+     * An https URI is sent unchanged. `market://launch?id=` is rewritten:
+     * this Sharp answers `remote_error` and then closes the socket. A bare
+     * package name becomes an explicit leanback intent for the same reason.
      */
     fun normalizeAppLink(appLinkOrId: String): String {
-        return if ("://" in appLinkOrId) appLinkOrId else "market://launch?id=$appLinkOrId"
+        val value = appLinkOrId.trim()
+        val marketId = marketPackage(value)
+        if (marketId != null) return TvAppLinks.leanback(marketId)
+        if (value.startsWith("intent:") || "://" in value) return value
+        if (value.isEmpty()) return value
+        return TvAppLinks.leanback(value)
+    }
+
+    private fun marketPackage(value: String): String? {
+        val prefix = "market://launch?id="
+        if (!value.startsWith(prefix)) return null
+        val id = value.removePrefix(prefix).substringBefore('&').trim()
+        return id.takeIf { it.isNotEmpty() }
     }
 }
 
+internal data class TvAppLink(
+    val id: String,
+    val packageName: String,
+    val link: String
+)
+
+/**
+ * One link per Apps-tab shortcut. https is used when that app's VIEW filter
+ * handles it. Jellyfin has no launch deeplink, and NHK+, Hulu Japan, and the
+ * Sharp tuner have no confirmed https filter, so those use a leanback intent.
+ */
 internal object TvAppLinks {
     const val YOUTUBE = "https://www.youtube.com"
-    const val NETFLIX = "market://launch?id=com.netflix.ninja"
-    const val DISNEY_PLUS = "market://launch?id=com.disney.disneyplus"
-    const val PRIME_VIDEO = "market://launch?id=com.amazon.amazonvideo.livingroom"
-    const val JELLYFIN = "market://launch?id=org.jellyfin.androidtv"
-    const val TVER = "market://launch?id=jp.co.tver.tvapp"
-    const val NHK = "market://launch?id=jp.nhk.plus.tv"
-    const val HULU = "market://launch?id=jp.happyon.android"
-    const val LIVE_TV = "market://launch?id=jp.co.sharp.av.android.aquostvapp"
+    const val NETFLIX = "https://www.netflix.com/title"
+    const val DISNEY_PLUS = "https://www.disneyplus.com"
+    const val PRIME_VIDEO = "https://app.primevideo.com"
+    const val TVER = "https://tver.jp"
+    val JELLYFIN = leanback("org.jellyfin.androidtv")
+    val NHK = leanback("jp.nhk.plus.tv")
+    val HULU = leanback("jp.happyon.android")
+    val LIVE_TV = leanback("jp.co.sharp.av.android.aquostvapp")
+
+    val ALL: List<TvAppLink> = listOf(
+        TvAppLink("youtube", "com.google.android.youtube.tv", YOUTUBE),
+        TvAppLink("netflix", "com.netflix.ninja", NETFLIX),
+        TvAppLink("disney", "com.disney.disneyplus", DISNEY_PLUS),
+        TvAppLink("prime", "com.amazon.amazonvideo.livingroom", PRIME_VIDEO),
+        TvAppLink("jellyfin", "org.jellyfin.androidtv", JELLYFIN),
+        TvAppLink("tver", "jp.co.tver.tvapp", TVER),
+        TvAppLink("nhk", "jp.nhk.plus.tv", NHK),
+        TvAppLink("hulu", "jp.happyon.android", HULU),
+        TvAppLink("live_tv", "jp.co.sharp.av.android.aquostvapp", LIVE_TV)
+    )
+
+    fun leanback(packageName: String): String =
+        "intent://#Intent;package=$packageName;" +
+            "action=android.intent.action.MAIN;" +
+            "category=android.intent.category.LEANBACK_LAUNCHER;end"
 }

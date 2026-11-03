@@ -59,7 +59,7 @@ The phone switches remotes from `RemoteImeKeyInject` (`remote_ime_key_inject`, f
 
 - **Sharp IP control, TCP 10002.** Volume, mute, channel, power, one-touch buttons, and the subtitle key for the tuner. Replies include the volume, mute state, current channel, and power. One socket, reused for 15 seconds, then closed before the TV's 60-second teardown. `RSPW2` is sent once while the set is on so `POWR1` can wake it from standby. This is the terrestrial remote.
 - **Remote-protocol keys.** D-pad, OK, back, home, play/pause, and app links. The foreground package arrives on `RemoteImeKeyInject`. Volume level from this protocol is separate from Sharp `VOLM`.
-- **App links.** `RemoteAppLinkLaunchRequest` field 90. `https://www.youtube.com` and `https://www.youtube.com/watch?v=…` open YouTube. Other apps use `market://launch?id=<package>`. This launches an app. It does not press buttons inside it.
+- **App links.** `RemoteAppLinkLaunchRequest` field 90 is one URI. The TV parses it with `Intent.parseUri` (`URI_INTENT_SCHEME`). https links that an app's VIEW filter handles are sent as-is: YouTube `https://www.youtube.com`, Netflix `https://www.netflix.com/title`, Disney+ `https://www.disneyplus.com`, Prime Video `https://app.primevideo.com`, TVer `https://tver.jp`. Jellyfin has no launch deeplink. NHK+, Hulu Japan, and the Sharp tuner have no confirmed https filter. Those use `intent://#Intent;package=<id>;action=android.intent.action.MAIN;category=android.intent.category.LEANBACK_LAUNCHER;end`. `market://launch?id=` is not sent: this set answers `remote_error value=true` and then closes the socket. A `remote_error` is logged and the session stays up. If the TV still FINs, the quiet reconnect applies. Sharp IP control has no app-launch command, and adb is not used. An app link launches an app. It does not press buttons inside it.
 - **Jellyfin API.** Sessions, Playstate, `SetSubtitleStreamIndex`, Next Up. Sign-in stays the v0.2.3 request: `POST /Users/AuthenticateByName` with `X-Emby-Authorization: MediaBrowser Client="Hearth Remote", Device="Hearth Remote", DeviceId="…", Version="…"` and JSON `Username` and `Pw`. Later calls also send `X-Emby-Token`. Each request is written to the connection log with the path, status, and error text, never the password or token. The access token stays in encrypted prefs on the phone. The password is not stored.
 - **YouTube Data API.** Needs an API key. Used only to fill Sportsnet highlight cards. Playback is still an app link.
 - **adb over the network.** Last resort for TV settings the protocol does not have: system captions if `KEYCODE_CAPTIONS` does nothing, and AquoMotion if a command even exists. Requires wireless debugging on the TV and is easy to break. Do not use it for Jellyfin subtitles or YouTube playback.
@@ -75,14 +75,14 @@ The phone switches remotes from `RemoteImeKeyInject` (`remote_ime_key_inject`, f
 
 Package names the v0.1.7 shortcuts already use, for the switcher to match against:
 
-| App | Package or link |
+| App | Link |
 | --- | --- |
 | YouTube | `https://www.youtube.com` (foreground package is usually `com.google.android.youtube.tv`) |
-| Netflix | `com.netflix.ninja` |
-| Disney+ | `com.disney.disneyplus` |
-| Prime Video | `com.amazon.amazonvideo.livingroom` |
-| Jellyfin | `org.jellyfin.androidtv` |
-| TVer | `jp.co.tver.tvapp` |
-| NHK | `jp.nhk.plus.tv` (Android TV app; the phone NHK ONE app is `nhk.app.tep`) |
-| Hulu (Japan) | `jp.happyon.android` |
-| Live TV | `jp.co.sharp.av.android.aquostvapp` (the tuner this set actually runs; `CHRC` prefix `TB` is the fallback when the package is missing) |
+| Netflix | `https://www.netflix.com/title` (`com.netflix.ninja`) |
+| Disney+ | `https://www.disneyplus.com` (`com.disney.disneyplus`) |
+| Prime Video | `https://app.primevideo.com` (`com.amazon.amazonvideo.livingroom`) |
+| Jellyfin | leanback intent for `org.jellyfin.androidtv` |
+| TVer | `https://tver.jp` (`jp.co.tver.tvapp`) |
+| NHK | leanback intent for `jp.nhk.plus.tv` (the phone NHK ONE app is `nhk.app.tep`) |
+| Hulu (Japan) | leanback intent for `jp.happyon.android` |
+| Live TV | leanback intent for `jp.co.sharp.av.android.aquostvapp` (the tuner this set actually runs; `CHRC` prefix `TB` is the fallback when the package is missing) |

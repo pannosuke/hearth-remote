@@ -314,9 +314,14 @@ class RemoteProtocol(
                 )
             }
             message.hasRemoteError() -> {
+                // The TV refused this one command. Leave the socket open and
+                // stay Connected. A later FIN still uses the quiet reconnect.
                 val text = "TV rejected a command: ${message.remoteError.value}"
-                Log.w(TAG, "$text ${message.remoteError}")
+                Log.w(TAG, text)
                 _lastError.value = text
+                if (remoteErrorClosesSession(message)) {
+                    onSocketLost(id, text)
+                }
             }
             else -> {
                 Log.d(TAG, "Unhandled remote message")
@@ -421,14 +426,30 @@ class RemoteProtocol(
     }
 }
 
-internal fun describeRemoteMessage(message: RemoteMessage): String {
+/**
+ * A [RemoteMessage] with `remote_error` refuses the command it names.
+ * It is not a disconnect: the read loop keeps the socket.
+ */
+internal fun remoteErrorClosesSession(message: RemoteMessage): Boolean {
+    if (!message.hasRemoteError()) return false
+    return false
+}
+
+internal fun describeRemoteMessage(message: RemoteMessage, nested: Boolean = false): String {
     return when {
         message.hasRemoteConfigure() -> {
             val info = message.remoteConfigure.deviceInfo
             "configure code1=${message.remoteConfigure.code1} model=${info.model} vendor=${info.vendor}"
         }
         message.hasRemoteSetActive() -> "set_active active=${message.remoteSetActive.active}"
-        message.hasRemoteError() -> "error value=${message.remoteError.value}"
+        message.hasRemoteError() -> {
+            val rejected = if (!nested && message.remoteError.hasMessage()) {
+                " " + describeRemoteMessage(message.remoteError.message, nested = true)
+            } else {
+                ""
+            }
+            "error value=${message.remoteError.value}$rejected session kept"
+        }
         message.hasRemotePingRequest() -> "ping_request val1=${message.remotePingRequest.val1}"
         message.hasRemotePingResponse() -> "ping_response val1=${message.remotePingResponse.val1}"
         message.hasRemoteKeyInject() -> {

@@ -33,6 +33,12 @@ jobs:
     
     - name: Run unit tests
       run: ./gradlew testDebugUnitTest --no-daemon
+
+    - name: Build minified release APK
+      run: ./gradlew assembleRelease --no-daemon
+
+    - name: Verify BouncyCastle classes survive R8
+      run: python3 scripts/verify_bc_in_apk.py app/build/outputs/apk/release/*.apk
     
     - name: Upload debug APK
       uses: actions/upload-artifact@v4

@@ -95,6 +95,9 @@ jobs:
         KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       run: ./gradlew assembleRelease --no-daemon
+
+    - name: Verify BouncyCastle classes survive R8
+      run: python3 scripts/verify_bc_in_apk.py app/build/outputs/apk/release/*.apk
     
     - name: Rename APK
       run: |

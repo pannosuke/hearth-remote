@@ -36,10 +36,10 @@ The phone switches remotes from `RemoteImeKeyInject` (`remote_ime_key_inject`, f
 | YouTube: subtitles on/off | `KEYCODE_CAPTIONS`, or a D-pad sequence through YouTube's menu | Unreliable. There is no caption-toggle message. |
 | YouTube: NHL highlight cards from Sportsnet | YouTube Data API (API key) to list recent videos on the Sportsnet channel, then `RemoteAppLinkLaunchRequest` with `https://www.youtube.com/watch?v=VIDEO_ID` | Yes, if Eric supplies an API key. The remote protocol cannot search YouTube. |
 | YouTube: profile switcher | None | Not feasible. See below. |
-| Jellyfin: play/pause | Jellyfin server API `Sessions/{id}/Playing/{PlayPause,Pause,Unpause}` | Yes, once the phone has the server URL and an API token. |
-| Jellyfin: volume | TV volume keys, not the Jellyfin session volume | Yes via remote keys. Jellyfin's own volume command only changes the player gain and is the wrong control for a TV. |
-| Jellyfin: one-tap Japanese, then English, subtitles | `Sessions/{id}/Playing/SetSubtitleStreamIndex`. Read `NowPlayingItem.MediaStreams`, prefer `Type=Subtitle` and `Language=ja`, then `en`. | Yes. This is the right tool. Japanese is the default choice. |
-| Jellyfin: Up next / next-episode cards | `Shows/NextUp` or the next episode from the current series, then `Sessions/{id}/Playing` with that item id | Yes. |
+| Jellyfin: play/pause | Jellyfin server API `Sessions/{id}/Playing/PlayPause` | Yes. v0.2.3. |
+| Jellyfin: volume | Sharp IP volume, not the Jellyfin session volume | Yes. v0.2.3 uses the same Sharp IP volume row as terrestrial. |
+| Jellyfin: one-tap Japanese, then English, subtitles | `Sessions/{id}/Command` `SetSubtitleStreamIndex`. Read `NowPlayingItem.MediaStreams`, prefer `Type=Subtitle` and `Language=jpn`/`ja`, then `eng`/`en`. Index `-1` is off. | Yes. v0.2.3. A missing language is greyed out. |
+| Jellyfin: Up next / next-episode cards | `Shows/NextUp`, then `Sessions/{id}/Playing?playCommand=PlayNow` | Yes. v0.2.3. |
 | Motion smoothing (AquoMotion) | Not a remote key and not a public Android setting | Unlikely. Only plausible path is adb, and Sharp may not expose the picture engine there. |
 | Polished visual design | Phone UI only | Yes. No TV API. |
 
@@ -58,7 +58,7 @@ The phone switches remotes from `RemoteImeKeyInject` (`remote_ime_key_inject`, f
 - **Sharp IP control, TCP 10002.** Volume, mute, channel, one-touch buttons, and the subtitle key for the tuner. Replies include the volume, mute state, and current channel. One socket, reused inside the 60-second idle window. This is the terrestrial remote.
 - **Remote-protocol keys.** D-pad, OK, back, home, play/pause, and app links. The foreground package arrives on `RemoteImeKeyInject`. Volume level from this protocol is separate from Sharp `VOLM`.
 - **App links.** `RemoteAppLinkLaunchRequest` field 90. `https://www.youtube.com` and `https://www.youtube.com/watch?v=…` open YouTube. Other apps use `market://launch?id=<package>`. This launches an app. It does not press buttons inside it.
-- **Jellyfin API.** Sessions, Playstate, `SetSubtitleStreamIndex`, Next Up. Needs the server address and an access token stored on the phone. This is how Japanese and English subtitles and the next episode actually work.
+- **Jellyfin API.** Sessions, Playstate, `SetSubtitleStreamIndex`, Next Up. v0.2.3 signs in with `AuthenticateByName`. The access token stays in encrypted prefs on the phone. The password is not stored.
 - **YouTube Data API.** Needs an API key. Used only to fill Sportsnet highlight cards. Playback is still an app link.
 - **adb over the network.** Last resort for TV settings the protocol does not have: system captions if `KEYCODE_CAPTIONS` does nothing, and AquoMotion if a command even exists. Requires wireless debugging on the TV and is easy to break. Do not use it for Jellyfin subtitles or YouTube playback.
 
@@ -67,7 +67,7 @@ The phone switches remotes from `RemoteImeKeyInject` (`remote_ime_key_inject`, f
 1. **Foreground app.** Done in v0.2.0. On `RemoteImeKeyInject`, store `app_package` and switch the visible remote. The Sharp tuner package shows the terrestrial screen. A missing package with a `TB` channel is the fallback. Any other package shows the generic remote.
 2. **Terrestrial layout.** Done in v0.2.0. Volume with a `VOLM` readout, mute state, channel up/down, subtitle `IRCO0267`, and Osaka one-touch cards via `CHRC`. "What's on now" is done in v0.2.2 from the J:COM XMLTV.
 3. **YouTube layout.** Play/pause and media seek keys. Sportsnet cards: Data API search or playlist for that channel, each card sends a watch URL. No profile switcher.
-4. **Jellyfin layout.** Settings for server URL and token. Play/pause through Playstate. One button that calls `SetSubtitleStreamIndex` for Japanese, and a second for English. Up next cards from Next Up that start that episode.
+4. **Jellyfin layout.** Done in v0.2.3. The screen appears when the foreground package is `org.jellyfin.androidtv`. Settings has the server URL and a username/password sign-in. Play/pause, seek, Japanese/English/Off subtitles, the now-playing header, and Up Next cards. YouTube (item 3) is still open.
 5. **adb experiments.** Only after the three remotes work. First confirm whether `KEYCODE_CAPTIONS` is enough. Then see if any adb command toggles AquoMotion. Drop it if the setting is not there.
 6. **Visual pass.** Do this after the layouts exist, so the polish is applied to the real screens: one type scale, large hit targets, the foreground app named at the top, cards that show a title and a single action. The v0.1 dark theme stays the base.
 

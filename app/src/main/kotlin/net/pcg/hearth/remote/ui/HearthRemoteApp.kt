@@ -12,7 +12,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import net.pcg.hearth.remote.BuildConfig
+import net.pcg.hearth.remote.data.AndroidJellyfinStore
 import net.pcg.hearth.remote.protocol.HttpGuideFetch
+import net.pcg.hearth.remote.protocol.HttpJellyfinTransport
+import net.pcg.hearth.remote.protocol.JellyfinRemote
 import net.pcg.hearth.remote.protocol.OsakaGuide
 import net.pcg.hearth.remote.protocol.TvConnection
 import net.pcg.hearth.remote.ui.components.VersionLabel
@@ -27,6 +31,13 @@ fun HearthRemoteApp() {
         OsakaGuide(
             directory = File(context.filesDir, "epg"),
             fetch = HttpGuideFetch()
+        )
+    }
+    val jellyfin = remember {
+        JellyfinRemote(
+            store = AndroidJellyfinStore(context),
+            transport = HttpJellyfinTransport(),
+            version = BuildConfig.VERSION_NAME
         )
     }
     DisposableEffect(guide) {
@@ -85,11 +96,17 @@ fun HearthRemoteApp() {
                         )
                         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                             when (currentScreen) {
-                                Screen.Remote -> RemoteShell(tvConnection = tvConnection, guide = guide)
+                                Screen.Remote -> RemoteShell(
+                                    tvConnection = tvConnection,
+                                    guide = guide,
+                                    jellyfin = jellyfin,
+                                    onOpenSettings = { viewModel.navigateTo(Screen.Settings) }
+                                )
                                 Screen.Trackpad -> TrackpadScreen(tvConnection = tvConnection)
                                 Screen.Apps -> AppsScreen(tvConnection = tvConnection)
                                 Screen.Settings -> SettingsScreen(
                                     tvConnection = tvConnection,
+                                    jellyfin = jellyfin,
                                     onOpenLog = { viewModel.navigateTo(Screen.SessionLog) },
                                     onForgetPairing = viewModel::forgetPairing
                                 )

@@ -15,6 +15,10 @@
 # Keep the RemoteMessage and Polo proto classes
 -keep class net.pcg.hearth.remote.proto.** { *; }
 
+# security-crypto pulls Tink, which references annotation-only classes.
+-dontwarn com.google.errorprone.annotations.Immutable
+-dontwarn javax.annotation.concurrent.GuardedBy
+
 # Coroutines
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
 -keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}

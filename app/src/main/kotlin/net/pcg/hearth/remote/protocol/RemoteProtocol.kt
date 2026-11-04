@@ -76,6 +76,15 @@ class RemoteProtocol(
     @Volatile private var reconnectJob: Job? = null
     private val quietLeft = java.util.concurrent.atomic.AtomicInteger(0)
 
+    /** Last app link written to the socket. Cleared by a later key or volume command. */
+    @Volatile private var lastAppLink: String? = null
+
+    /** `hearth://` retry armed by a rejected https trampoline. Taken once. */
+    private var retryLink: String? = null
+
+    /** The next socket close follows a remote_error and reconnects immediately. */
+    private var errorReconnect = false
+
     data class VolumeState(
         val level: Int,
         val max: Int,
@@ -125,7 +134,10 @@ class RemoteProtocol(
             sessionId += 1
             activeHost = null
             opening = false
+            retryLink = null
+            errorReconnect = false
         }
+        lastAppLink = null
         closeSocket()
         connectionJob?.cancel()
         readJob?.cancel()
@@ -191,20 +203,35 @@ class RemoteProtocol(
     }
 
     private fun onSocketLost(id: Int, message: String) {
-        val (host, gen) = synchronized(sessionLock) {
+        val host: String
+        val gen: Int
+        val afterError: Boolean
+        val retry: String?
+        synchronized(sessionLock) {
             if (id != sessionId || activeHost == null) return
             opening = false
             sessionId += 1
             generation += 1
-            activeHost!! to generation
+            host = activeHost!!
+            gen = generation
+            afterError = errorReconnect
+            retry = retryLink
+            errorReconnect = false
+            retryLink = null
         }
         val wasUp = synchronized(pendingCommands) { sessionReady }
-        val plan = planReconnect(wasUp, quietLeft.get())
+        val plan = planReconnect(wasUp, quietLeft.get(), afterError)
         quietLeft.set(plan.quietLeft)
         Log.w(TAG, "Remote session lost: $message")
         _closeReason.value = message
         record("close", message)
         synchronized(pendingCommands) { sessionReady = false }
+        if (retry != null) {
+            synchronized(pendingCommands) {
+                if (pendingCommands.size >= MAX_PENDING) pendingCommands.removeFirst()
+                pendingCommands.addLast(RemoteMessages.appLink(retry))
+            }
+        }
         if (plan.quiet) {
             if (_connectionState.value !is ConnectionState.Connected) {
                 _connectionState.value = ConnectionState.Connecting
@@ -251,6 +278,9 @@ class RemoteProtocol(
                         }
                         record("in", describeRemoteMessage(message))
                         handleMessage(message, id)
+                        if (!message.hasRemoteError()) {
+                            onSocketSurvivedError()
+                        }
                     }
                 }
             } catch (e: CancellationException) {
@@ -314,11 +344,17 @@ class RemoteProtocol(
                 )
             }
             message.hasRemoteError() -> {
-                // The TV refused this one command. Leave the socket open and
-                // stay Connected. A later FIN still uses the quiet reconnect.
+                // This set FINs immediately after remote_error. Do not close
+                // from here and do not raise a visible error. The following
+                // EOF reconnects immediately and sends any hearth:// retry.
                 val text = "TV rejected a command: ${message.remoteError.value}"
                 Log.w(TAG, text)
-                _lastError.value = text
+                synchronized(sessionLock) { errorReconnect = true }
+                val rejected = rejectedAppLink(message) ?: lastAppLink
+                val next = rejected?.let { HearthLaunch.fallback(it) }
+                if (next != null) {
+                    armLaunchRetry(next)
+                }
                 if (remoteErrorClosesSession(message)) {
                     onSocketLost(id, text)
                 }
@@ -389,9 +425,46 @@ class RemoteProtocol(
         }
     }
 
+    private fun armLaunchRetry(next: String) {
+        val armed = synchronized(sessionLock) {
+            if (retryLink != null) {
+                false
+            } else {
+                retryLink = next
+                true
+            }
+        }
+        if (!armed) return
+        lastAppLink = next
+        record("sys", "retry $next")
+    }
+
+    /** A later inbound message means the socket outlived the error, so send the retry now. */
+    private fun onSocketSurvivedError() {
+        val link = synchronized(sessionLock) {
+            errorReconnect = false
+            val pending = retryLink
+            retryLink = null
+            pending
+        } ?: return
+        enqueue(RemoteMessages.appLink(link))
+    }
+
+    private fun rememberOutbound(message: RemoteMessage) {
+        when {
+            message.hasRemoteAppLinkLaunchRequest() ->
+                lastAppLink = message.remoteAppLinkLaunchRequest.appLink
+            message.hasRemotePingResponse() ||
+                message.hasRemoteConfigure() ||
+                message.hasRemoteSetActive() -> Unit
+            else -> lastAppLink = null
+        }
+    }
+
     private fun sendMessageSync(message: RemoteMessage): Boolean {
         val (out, id) = synchronized(sessionLock) { output to outputSessionId }
         if (out == null) return false
+        rememberOutbound(message)
         return try {
             val bytes = message.toByteArray()
             record("out", describeRemoteMessage(message))
@@ -427,12 +500,21 @@ class RemoteProtocol(
 }
 
 /**
- * A [RemoteMessage] with `remote_error` refuses the command it names.
- * It is not a disconnect: the read loop keeps the socket.
+ * A [RemoteMessage] with `remote_error` refuses one command. This client
+ * does not close the socket. The TV often FINs anyway; that close reconnects
+ * immediately and stays quiet.
  */
 internal fun remoteErrorClosesSession(message: RemoteMessage): Boolean {
     if (!message.hasRemoteError()) return false
     return false
+}
+
+/** App link named by a remote_error, when the TV echoed the rejected command. */
+internal fun rejectedAppLink(message: RemoteMessage): String? {
+    if (!message.hasRemoteError() || !message.remoteError.hasMessage()) return null
+    val nested = message.remoteError.message
+    if (!nested.hasRemoteAppLinkLaunchRequest()) return null
+    return nested.remoteAppLinkLaunchRequest.appLink
 }
 
 internal fun describeRemoteMessage(message: RemoteMessage, nested: Boolean = false): String {
@@ -448,7 +530,7 @@ internal fun describeRemoteMessage(message: RemoteMessage, nested: Boolean = fal
             } else {
                 ""
             }
-            "error value=${message.remoteError.value}$rejected session kept"
+            "error value=${message.remoteError.value}$rejected"
         }
         message.hasRemotePingRequest() -> "ping_request val1=${message.remotePingRequest.val1}"
         message.hasRemotePingResponse() -> "ping_response val1=${message.remotePingResponse.val1}"
@@ -483,7 +565,18 @@ internal data class ReconnectPlan(
     val delayMs: Long
 )
 
-internal fun planReconnect(wasUp: Boolean, quietLeft: Int): ReconnectPlan {
+internal fun planReconnect(
+    wasUp: Boolean,
+    quietLeft: Int,
+    afterError: Boolean = false
+): ReconnectPlan {
+    if (afterError) {
+        return ReconnectPlan(
+            quiet = true,
+            quietLeft = maxOf(quietLeft, 3),
+            delayMs = 0L
+        )
+    }
     val quiet = wasUp || quietLeft > 0
     val nextQuiet = when {
         wasUp -> 3

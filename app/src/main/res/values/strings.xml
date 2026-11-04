@@ -48,7 +48,10 @@
     <string name="btn_volume_mute">Mute</string>
     <string name="btn_channel_up">Channel Up</string>
     <string name="btn_channel_down">Channel Down</string>
-    <string name="btn_subtitles">Subtitles</string>
+    <string name="btn_subtitles_on">Subtitles on</string>
+    <string name="btn_subtitles_off">Subtitles off</string>
+    <string name="toast_subtitles_on">Subtitles on…</string>
+    <string name="toast_subtitles_off">Subtitles off…</string>
     <string name="live_tv_title">Terrestrial</string>
     <string name="jellyfin_title">Jellyfin</string>
     <string name="jellyfin_sign_in_needed">Sign in to Jellyfin in Settings</string>
@@ -107,8 +110,9 @@
     <string name="settings_tv_address">TV Address</string>
     <string name="settings_connection_log">Connection log</string>
     <string name="settings_forget_pairing">Forget Pairing</string>
-    <string name="settings_subtitle_macro">Subtitle macro</string>
-    <string name="settings_subtitle_macro_hint">One step per line. IRCO 0267 is one key. WAIT 400 pauses. The subtitle button runs this sequence.</string>
+    <string name="settings_subtitle_on">Subtitles on</string>
+    <string name="settings_subtitle_off">Subtitles off</string>
+    <string name="settings_subtitle_macro_hint">One step per line. IRCO 0267 opens the drawer. WAIT 900 pauses. Each button runs its own sequence.</string>
     <string name="session_log_title">Connection log</string>
     <string name="session_log_empty">No messages yet</string>
     <string name="session_log_close_reason">Close reason: %1$s</string>

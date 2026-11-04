@@ -33,7 +33,8 @@ internal fun SettingsScreen(
     val tvHost = settingsRepository.getTvHost() ?: settingsRepository.getDefaultTvHost()
     
     var showForgetDialog by remember { mutableStateOf(false) }
-    var subtitleMacro by remember { mutableStateOf(settingsRepository.getSubtitleMacro()) }
+    var subtitleOn by remember { mutableStateOf(settingsRepository.getSubtitleOnMacro()) }
+    var subtitleOff by remember { mutableStateOf(settingsRepository.getSubtitleOffMacro()) }
     val jellyfinState by jellyfin.state.collectAsState()
     val scope = rememberCoroutineScope()
     var jellyfinUrl by remember { mutableStateOf(jellyfinState.serverUrl) }
@@ -193,15 +194,26 @@ internal fun SettingsScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
-            value = subtitleMacro,
+            value = subtitleOn,
             onValueChange = { value ->
-                subtitleMacro = value
-                settingsRepository.setSubtitleMacro(value)
+                subtitleOn = value
+                settingsRepository.setSubtitleOnMacro(value)
             },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text(stringResource(R.string.settings_subtitle_macro)) },
+            label = { Text(stringResource(R.string.settings_subtitle_on)) },
             supportingText = { Text(stringResource(R.string.settings_subtitle_macro_hint)) },
-            minLines = 3
+            minLines = 4
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedTextField(
+            value = subtitleOff,
+            onValueChange = { value ->
+                subtitleOff = value
+                settingsRepository.setSubtitleOffMacro(value)
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(stringResource(R.string.settings_subtitle_off)) },
+            minLines = 4
         )
         }
 

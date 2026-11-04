@@ -4,13 +4,10 @@ package net.pcg.hearth.remote.protocol
  * Steps a terrestrial subtitle button sends on Sharp IP control.
  *
  * Subtitle opens a drawer already focused on Display Style. Enter opens
- * the options. On moves down once to the guessed On Screen row. Off moves
- * up once to the guessed Off row. Enter confirms, then Back closes the
- * drawer. Both sequences are editable:
- *
- * IRCO 0267
- * WAIT 900
- * IRCO 0152
+ * the list. Top to bottom that list is On screen, Out screen above,
+ * Out screen below, Off. Focus starts on Off, so On is three UP presses
+ * and Off is three DOWN presses. Enter confirms, then Back closes the
+ * drawer. Both sequences are editable.
  *
  * WAIT pauses in milliseconds and does not use the socket. Any other
  * 4-letter command is sent as a Sharp command with a parameter of at most
@@ -25,12 +22,44 @@ internal object SubtitleMacro {
         "WAIT 900",
         "IRCO ${SharpIpCommands.ENTER}",
         "WAIT 600",
-        "IRCO ${SharpIpCommands.DOWN}",
+        "IRCO ${SharpIpCommands.UP}",
+        "WAIT 250",
+        "IRCO ${SharpIpCommands.UP}",
+        "WAIT 250",
+        "IRCO ${SharpIpCommands.UP}",
+        "WAIT 250",
         "IRCO ${SharpIpCommands.ENTER}",
         "WAIT 500",
         "IRCO ${SharpIpCommands.BACK}"
     )
     val OFF: String = sequence(
+        "IRCO ${SharpIpCommands.SUBTITLE}",
+        "WAIT 900",
+        "IRCO ${SharpIpCommands.ENTER}",
+        "WAIT 600",
+        "IRCO ${SharpIpCommands.DOWN}",
+        "WAIT 250",
+        "IRCO ${SharpIpCommands.DOWN}",
+        "WAIT 250",
+        "IRCO ${SharpIpCommands.DOWN}",
+        "WAIT 250",
+        "IRCO ${SharpIpCommands.ENTER}",
+        "WAIT 500",
+        "IRCO ${SharpIpCommands.BACK}"
+    )
+
+    /** v0.2.8 guessed one DOWN for On and one UP for Off. Those saved defaults are replaced. */
+    private val V028_ON: String = sequence(
+        "IRCO ${SharpIpCommands.SUBTITLE}",
+        "WAIT 900",
+        "IRCO ${SharpIpCommands.ENTER}",
+        "WAIT 600",
+        "IRCO ${SharpIpCommands.DOWN}",
+        "IRCO ${SharpIpCommands.ENTER}",
+        "WAIT 500",
+        "IRCO ${SharpIpCommands.BACK}"
+    )
+    private val V028_OFF: String = sequence(
         "IRCO ${SharpIpCommands.SUBTITLE}",
         "WAIT 900",
         "IRCO ${SharpIpCommands.ENTER}",
@@ -50,10 +79,31 @@ internal object SubtitleMacro {
         return parseLines(ON).orEmpty()
     }
 
+    /**
+     * The new default when [saved] is still a factory sequence from v0.2.8
+     * or the original one-key press. A sequence that differs is left alone.
+     */
+    fun replacementFor(saved: String?, on: Boolean): String? {
+        if (saved.isNullOrBlank()) return null
+        val replaced = if (on) {
+            sameSteps(saved, V028_ON) || isLegacySinglePress(saved)
+        } else {
+            sameSteps(saved, V028_OFF)
+        }
+        if (!replaced) return null
+        return if (on) ON else OFF
+    }
+
     /** The v0.2.0 one-key macro. A saved copy of it is not a tuned routine. */
     fun isLegacySinglePress(text: String): Boolean {
         val compact = text.trim().replace(" ", "").replace("\t", "")
         return compact.equals("IRCO${SharpIpCommands.SUBTITLE}", ignoreCase = true)
+    }
+
+    private fun sameSteps(text: String, canonical: String): Boolean {
+        val left = parseLines(text) ?: return false
+        val right = parseLines(canonical) ?: return false
+        return left == right
     }
 
     private fun sequence(vararg lines: String): String = lines.joinToString("\n")

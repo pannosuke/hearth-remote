@@ -30,9 +30,14 @@ class SettingsRepository(context: Context) {
     fun getDefaultTvHost(): String = DEFAULT_TV_HOST
 
     fun getSubtitleOnMacro(): String {
-        prefs.getString(KEY_SUBTITLE_ON, null)?.let { return it }
+        val stored = prefs.getString(KEY_SUBTITLE_ON, null)
+        SubtitleMacro.replacementFor(stored, on = true)?.let { fresh ->
+            prefs.edit().putString(KEY_SUBTITLE_ON, fresh).apply()
+            return fresh
+        }
+        if (stored != null) return stored
         val legacy = prefs.getString(KEY_SUBTITLE_MACRO, null)
-        if (legacy != null && !SubtitleMacro.isLegacySinglePress(legacy)) return legacy
+        if (legacy != null && SubtitleMacro.replacementFor(legacy, on = true) == null) return legacy
         return SubtitleMacro.ON
     }
 
@@ -41,7 +46,12 @@ class SettingsRepository(context: Context) {
     }
 
     fun getSubtitleOffMacro(): String {
-        return prefs.getString(KEY_SUBTITLE_OFF, null) ?: SubtitleMacro.OFF
+        val stored = prefs.getString(KEY_SUBTITLE_OFF, null)
+        SubtitleMacro.replacementFor(stored, on = false)?.let { fresh ->
+            prefs.edit().putString(KEY_SUBTITLE_OFF, fresh).apply()
+            return fresh
+        }
+        return stored ?: SubtitleMacro.OFF
     }
 
     fun setSubtitleOffMacro(value: String) {

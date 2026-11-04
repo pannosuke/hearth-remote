@@ -67,33 +67,38 @@ class RemoteAppLinkTest {
         assertEquals("https://tver.jp", sent.getValue("tver"))
         listOf("jellyfin", "nhk", "hulu", "live_tv").forEach { id ->
             val app = TvAppLinks.ALL.first { it.id == id }
-            assertEquals(HearthLaunch.https(app.packageName), sent.getValue(id))
-            assertEquals(HearthLaunch.scheme(app.packageName), app.fallback)
-            assertEquals(app.fallback, HearthLaunch.fallback(app.link))
+            assertEquals(HearthLaunch.scheme(app.packageName), sent.getValue(id))
+            assertTrue(sent.getValue(id).startsWith("hearth://launch?pkg="))
         }
-        TvAppLinks.ALL.filter { it.fallback == null }.forEach { app ->
-            assertTrue(app.link.startsWith("https://"))
-            assertFalse(app.link.contains("hearth.local"))
-            assertEquals(null, HearthLaunch.fallback(app.link))
-        }
+        assertEquals(Foreground.JELLYFIN_PACKAGE, TvAppLinks.ALL.first { it.id == "jellyfin" }.packageName)
+        assertEquals("org.jellyfin.androidtv", Foreground.JELLYFIN_PACKAGE)
+        assertEquals(
+            "hearth://launch?pkg=org.jellyfin.androidtv",
+            sent.getValue("jellyfin")
+        )
         sent.values.forEach { link ->
+            assertFalse(link.contains("hearth.local"))
             assertFalse(link.startsWith("market://"))
             assertFalse(link.startsWith("intent:"))
         }
     }
 
     @Test
-    fun `rejected links become the hearth trampoline`() {
+    fun `hearth https and package ids become the hearth scheme`() {
         assertEquals(
-            HearthLaunch.https("org.jellyfin.androidtv"),
+            "hearth://launch?pkg=org.jellyfin.androidtv",
+            RemoteMessages.normalizeAppLink("https://hearth.local/launch?pkg=org.jellyfin.androidtv")
+        )
+        assertEquals(
+            "hearth://launch?pkg=org.jellyfin.androidtv",
             RemoteMessages.normalizeAppLink("market://launch?id=org.jellyfin.androidtv")
         )
         assertEquals(
-            HearthLaunch.https("com.netflix.ninja"),
+            "hearth://launch?pkg=com.netflix.ninja",
             RemoteMessages.normalizeAppLink("com.netflix.ninja")
         )
         assertEquals(
-            HearthLaunch.https("org.jellyfin.androidtv"),
+            "hearth://launch?pkg=org.jellyfin.androidtv",
             RemoteMessages.normalizeAppLink(
                 "intent://#Intent;package=org.jellyfin.androidtv;" +
                     "action=android.intent.action.MAIN;" +
@@ -104,20 +109,19 @@ class RemoteAppLinkTest {
             "https://www.youtube.com/watch?v=abc",
             RemoteMessages.normalizeAppLink("https://www.youtube.com/watch?v=abc")
         )
-        assertEquals(
-            "hearth://launch?pkg=org.jellyfin.androidtv",
-            HearthLaunch.fallback("https://hearth.local/launch?pkg=org.jellyfin.androidtv")
-        )
-        assertEquals(null, HearthLaunch.fallback("hearth://launch?pkg=org.jellyfin.androidtv"))
+        assertEquals(Foreground.JELLYFIN_PACKAGE, HearthLaunch.jellyfinPackage(null))
+        assertEquals(Foreground.JELLYFIN_PACKAGE, HearthLaunch.jellyfinPackage("com.google.android.youtube.tv"))
+        assertEquals("org.jellyfin.androidtv", HearthLaunch.jellyfinPackage("org.jellyfin.androidtv"))
+        assertEquals("org.jellyfin.androidtv.debug", HearthLaunch.jellyfinPackage("org.jellyfin.androidtv.debug"))
     }
 
     @Test
-    fun `remote error does not close and retries the hearth scheme`() {
-        val https = HearthLaunch.https("org.jellyfin.androidtv")
+    fun `a rejected hearth link is reported and does not close the session`() {
+        val link = "hearth://launch?pkg=org.jellyfin.androidtv"
         val rejected = RemoteMessage.newBuilder()
             .setRemoteAppLinkLaunchRequest(
                 net.pcg.hearth.remote.proto.RemoteProto.RemoteAppLinkLaunchRequest.newBuilder()
-                    .setAppLink(https)
+                    .setAppLink(link)
             )
             .build()
         val message = RemoteMessage.newBuilder()
@@ -128,12 +132,16 @@ class RemoteAppLinkTest {
             )
             .build()
         assertFalse(remoteErrorClosesSession(message))
-        assertEquals(https, rejectedAppLink(message))
-        assertEquals(HearthLaunch.scheme("org.jellyfin.androidtv"), HearthLaunch.fallback(rejectedAppLink(message)!!))
+        assertEquals(link, rejectedAppLink(message))
+        val failure = HearthLaunch.failure(rejectedAppLink(message), message.remoteError.value)
+        assertEquals(
+            "Hearth rejected $link (error value=true). The Hearth launcher on the TV needs a fix.",
+            failure
+        )
+        assertEquals(null, HearthLaunch.failure("https://www.youtube.com", true))
         val text = describeRemoteMessage(message)
         assertTrue(text.contains("value=true"))
-        assertTrue(text.contains("app_link $https"))
-        assertFalse(text.contains("session kept"))
+        assertTrue(text.contains("app_link $link"))
         val plan = planReconnect(wasUp = true, quietLeft = 0, afterError = true)
         assertTrue(plan.quiet)
         assertEquals(0L, plan.delayMs)

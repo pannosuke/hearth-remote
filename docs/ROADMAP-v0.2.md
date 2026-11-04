@@ -15,7 +15,7 @@ Verified live on this set:
 | `MUTE????` | `2` | 2 = off, 1 = on, 0 toggles |
 | `CHRC????` | `TB10` | terrestrial, one-touch button 10 |
 
-`IRCO` plus 4 hex digits sends a remote key: subtitle `0267`, volume up `0114`, volume down `0115`, mute `0117`, channel up `0111`, channel down `0112`, digits 1–9 `024E`–`0256`, 0 `0257`, back `01E4`, home `02BB`, guide `0260`, display `011B`. `VOLM` sets the level. `CHUP` / `CHDW` step the channel. `CHRC` plus 1–12 is the one-touch button.
+`IRCO` plus 4 hex digits sends a remote key: subtitle `0267`, enter `0152`, up `0157`, down `0120`, volume up `0114`, volume down `0115`, mute `0117`, channel up `0111`, channel down `0112`, digits 1–9 `024E`–`0256`, 0 `0257`, back `01E4`, home `02BB`, guide `0260`, display `011B`. `VOLM` sets the level. `CHUP` / `CHDW` step the channel. `CHRC` plus 1–12 is the one-touch button.
 
 Power uses `POWR`. `POWR????` returns `1` when the set is on and `0` in standby. `POWR0` puts it in standby. `POWR1` wakes it. `POWR1` from standby does nothing until power-on over IP is enabled. The phone sends `RSPW2` once while the set is on (command `RSPW`, parameter `2`, which allows power-on over IP from any address) and remembers that the set accepted it. The top-bar power button sends Android TV `KEYCODE_POWER` while the 6466 session is up, and uses `POWR0` / `POWR1` when that session is down.
 
@@ -32,7 +32,7 @@ The phone switches remotes from `RemoteImeKeyInject` (`remote_ime_key_inject`, f
 | Terrestrial: channel up/down | Sharp IP `CHUP` / `CHDW`, then `CHRC????` for the current channel | Yes. v0.2.0. |
 | Terrestrial: channel cards (10, 8, 7, 6, then 1, 2, 4, 12, …) | Sharp IP `CHRC` plus the one-touch button number, not a digit-key sequence | Yes. v0.2.0. Osaka names: YTV, KTV, TVO, ABC, NHK, NHK E, MBS, 12, SUN. |
 | Terrestrial: what's on now | Phone fetches dbghelp/JCOM-TV-EPG `jcom.xml` (XMLTV, no key) and shows the current title, time range, progress, and the next programme | Yes. v0.2.2. Button 12 has no listing. |
-| Terrestrial: one-tap subtitles | Sharp IP `IRCO0267` | Yes. Verified key. v0.2.0 sends it. There is no subtitle-state query. |
+| Terrestrial: subtitles on/off | Sharp IP macro. Subtitle `0267` opens the drawer on Display Style, Enter `0152` opens the options, Down `0120` guesses On Screen, Up `0157` guesses Off, Enter confirms, Back `01E4` closes. Both sequences are editable in Settings. | Yes. v0.2.8. There is no subtitle-state query. The down/up count is a guess until Eric tries it. |
 | YouTube: play/pause | `KEYCODE_MEDIA_PLAY_PAUSE` while YouTube is focused | Yes. |
 | YouTube: skip / seek jumps | `KEYCODE_MEDIA_FAST_FORWARD`, `KEYCODE_MEDIA_REWIND`, `KEYCODE_MEDIA_NEXT`, `KEYCODE_MEDIA_PREVIOUS`. A 10-second jump is often left/right on the D-pad inside the player, which is not a labeled seek API. | Keys yes. Exact "jump 10 seconds" is not a protocol message. |
 | YouTube: subtitles on/off | `KEYCODE_CAPTIONS`, or a D-pad sequence through YouTube's menu | Unreliable. There is no caption-toggle message. |
@@ -67,7 +67,7 @@ The phone switches remotes from `RemoteImeKeyInject` (`remote_ime_key_inject`, f
 ## Recommended build order
 
 1. **Foreground app.** Done in v0.2.0. On `RemoteImeKeyInject`, store `app_package` and switch the visible remote. The Sharp tuner package shows the terrestrial screen. A missing package with a `TB` channel is the fallback. Any other package shows the generic remote.
-2. **Terrestrial layout.** Done in v0.2.0. Volume with a `VOLM` readout, mute state, channel up/down, subtitle `IRCO0267`, and Osaka one-touch cards via `CHRC`. "What's on now" is done in v0.2.2 from the J:COM XMLTV.
+2. **Terrestrial layout.** Done in v0.2.0. Volume with a `VOLM` readout, mute state, channel up/down, and Osaka one-touch cards via `CHRC`. "What's on now" is done in v0.2.2 from the J:COM XMLTV. Subtitles on and off are separate Sharp IP macros as of v0.2.8.
 3. **YouTube layout.** Play/pause and media seek keys. Sportsnet cards: Data API search or playlist for that channel, each card sends a watch URL. No profile switcher.
 4. **Jellyfin layout.** Done in v0.2.3. The screen appears when the foreground package is `org.jellyfin.androidtv`. Settings has the server URL and a username/password sign-in. Play/pause, seek, Japanese/English/Off subtitles, the now-playing header, and Up Next cards. YouTube (item 3) is still open.
 5. **adb experiments.** Only after the three remotes work. First confirm whether `KEYCODE_CAPTIONS` is enough. Then see if any adb command toggles AquoMotion. Drop it if the setting is not there.

@@ -74,10 +74,23 @@ class ForegroundTest {
     }
 
     @Test
-    fun `subtitle macro defaults to one key and can be a sequence`() {
-        assertEquals(listOf(MacroStep("IRCO", "0267")), SubtitleMacro.parse(null))
-        assertEquals(listOf(MacroStep("IRCO", "0267")), SubtitleMacro.parse(""))
-        assertEquals(listOf(MacroStep("IRCO", "0267")), SubtitleMacro.parse("IRCO0267"))
+    fun `subtitle on and off are editable drawer routines`() {
+        val on = listOf(
+            MacroStep("IRCO", "0267"),
+            MacroStep("WAIT", "900"),
+            MacroStep("IRCO", "0152"),
+            MacroStep("WAIT", "600"),
+            MacroStep("IRCO", "0120"),
+            MacroStep("IRCO", "0152"),
+            MacroStep("WAIT", "500"),
+            MacroStep("IRCO", "01E4")
+        )
+        val off = on.toMutableList().also { it[4] = MacroStep("IRCO", "0157") }
+        assertEquals(on, SubtitleMacro.parse(null))
+        assertEquals(on, SubtitleMacro.parse(""))
+        assertEquals(on, SubtitleMacro.parse(SubtitleMacro.ON))
+        assertEquals(off, SubtitleMacro.parse(null, SubtitleMacro.OFF))
+        assertEquals(off, SubtitleMacro.parse(SubtitleMacro.OFF, SubtitleMacro.OFF))
         assertEquals(
             listOf(
                 MacroStep("IRCO", "0267"),
@@ -86,7 +99,11 @@ class ForegroundTest {
             ),
             SubtitleMacro.parse("IRCO 0267\nWAIT 400\nIRCO 01E4")
         )
-        assertEquals(listOf(MacroStep("IRCO", "0267")), SubtitleMacro.parse("not a macro"))
+        assertEquals(on, SubtitleMacro.parse("not a macro"))
+        assertEquals(off, SubtitleMacro.parse("not a macro", SubtitleMacro.OFF))
+        assertTrue(SubtitleMacro.isLegacySinglePress("IRCO 0267"))
+        assertTrue(SubtitleMacro.isLegacySinglePress("IRCO0267"))
+        assertFalse(SubtitleMacro.isLegacySinglePress(SubtitleMacro.ON))
     }
 
     @Test

@@ -1,6 +1,7 @@
 package net.pcg.hearth.remote.ui.screens
 
 import android.view.HapticFeedbackConstants
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -21,6 +22,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -71,7 +73,9 @@ internal fun RemoteShell(
 private fun TerrestrialScreen(tvConnection: TvConnection, guide: OsakaGuide) {
     val tuner by tvConnection.tunerStatus.collectAsState()
     val guideState by guide.state.collectAsState()
+    val subtitleRunning by tvConnection.subtitleMacroRunning.collectAsState()
     val view = LocalView.current
+    val context = LocalContext.current
     val code = OsakaChannels.channelReading(tuner.channel)
     val currentButton = OsakaChannels.buttonNumber(code)
     val station = currentButton?.let { OsakaChannels.find(it) }
@@ -200,16 +204,36 @@ private fun TerrestrialScreen(tvConnection: TvConnection, guide: OsakaGuide) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        OutlinedButton(
-            onClick = {
-                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                tvConnection.toggleSubtitles()
-            },
-            modifier = Modifier.fillMaxWidth().height(56.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(Icons.Default.ClosedCaption, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.btn_subtitles))
+            OutlinedButton(
+                onClick = {
+                    if (!tvConnection.startSubtitleMacro(true)) return@OutlinedButton
+                    view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                    Toast.makeText(context, context.getString(R.string.toast_subtitles_on), Toast.LENGTH_SHORT).show()
+                },
+                enabled = !subtitleRunning,
+                modifier = Modifier.weight(1f).height(56.dp)
+            ) {
+                Icon(Icons.Default.ClosedCaption, contentDescription = null)
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.btn_subtitles_on), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            OutlinedButton(
+                onClick = {
+                    if (!tvConnection.startSubtitleMacro(false)) return@OutlinedButton
+                    view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                    Toast.makeText(context, context.getString(R.string.toast_subtitles_off), Toast.LENGTH_SHORT).show()
+                },
+                enabled = !subtitleRunning,
+                modifier = Modifier.weight(1f).height(56.dp)
+            ) {
+                Icon(Icons.Default.ClosedCaptionDisabled, contentDescription = null)
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.btn_subtitles_off), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
 
         Spacer(modifier = Modifier.height(12.dp))

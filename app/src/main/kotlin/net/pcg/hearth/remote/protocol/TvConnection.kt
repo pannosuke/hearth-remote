@@ -36,6 +36,10 @@ class TvConnection(private val context: Context) {
     private val _powerOn = MutableStateFlow<Boolean?>(null)
     val powerOn: StateFlow<Boolean?> = _powerOn.asStateFlow()
 
+    private val subtitleBusy = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val _subtitleMacroRunning = MutableStateFlow(false)
+    val subtitleMacroRunning: StateFlow<Boolean> = _subtitleMacroRunning.asStateFlow()
+
     init {
         ioScope.launch {
             var nextPowerAt = 0L
@@ -385,9 +389,23 @@ class TvConnection(private val context: Context) {
         }
     }
 
-    fun toggleSubtitles() {
+    /**
+     * Run the On or Off subtitle macro on the one Sharp IP socket.
+     * Waits stay inside the lock so a volume or channel command cannot
+     * land in the middle of the drawer. Returns false when a macro is
+     * already running.
+     */
+    fun startSubtitleMacro(on: Boolean): Boolean {
+        if (!subtitleBusy.compareAndSet(false, true)) return false
+        _subtitleMacroRunning.value = true
         ioScope.launch {
-            val steps = SubtitleMacro.parse(settingsRepository.getSubtitleMacro())
+            val text = if (on) {
+                settingsRepository.getSubtitleOnMacro()
+            } else {
+                settingsRepository.getSubtitleOffMacro()
+            }
+            val fallback = if (on) SubtitleMacro.ON else SubtitleMacro.OFF
+            val steps = SubtitleMacro.parse(text, fallback)
             try {
                 sharpIp.exclusive { send ->
                     for (step in steps) {
@@ -399,10 +417,16 @@ class TvConnection(private val context: Context) {
                         }
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.w(TAG, "Subtitle macro failed: ${e.message}")
                 remoteProtocol.reportError(context.getString(R.string.ip_control_failed))
+            } finally {
+                subtitleBusy.set(false)
+                _subtitleMacroRunning.value = false
             }
         }
+        return true
     }
 }

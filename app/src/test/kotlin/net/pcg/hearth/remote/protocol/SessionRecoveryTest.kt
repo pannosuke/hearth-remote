@@ -24,4 +24,12 @@ class SessionRecoveryTest {
         assertEquals(2_000L, exhausted.delayMs)
         assertEquals(0, exhausted.quietLeft)
     }
+
+    @Test
+    fun `a close after remote_error reconnects immediately and stays quiet`() {
+        val plan = planReconnect(wasUp = true, quietLeft = 0, afterError = true)
+        assertTrue(plan.quiet)
+        assertEquals(0L, plan.delayMs)
+        assertEquals(3, plan.quietLeft)
+    }
 }

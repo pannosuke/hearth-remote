@@ -65,42 +65,59 @@ class RemoteAppLinkTest {
         assertEquals("https://www.disneyplus.com", sent.getValue("disney"))
         assertEquals("https://app.primevideo.com", sent.getValue("prime"))
         assertEquals("https://tver.jp", sent.getValue("tver"))
-        assertEquals(TvAppLinks.leanback("org.jellyfin.androidtv"), sent.getValue("jellyfin"))
-        assertEquals(TvAppLinks.leanback("jp.nhk.plus.tv"), sent.getValue("nhk"))
-        assertEquals(TvAppLinks.leanback("jp.happyon.android"), sent.getValue("hulu"))
-        assertEquals(TvAppLinks.leanback("jp.co.sharp.av.android.aquostvapp"), sent.getValue("live_tv"))
+        listOf("jellyfin", "nhk", "hulu", "live_tv").forEach { id ->
+            val app = TvAppLinks.ALL.first { it.id == id }
+            assertEquals(HearthLaunch.https(app.packageName), sent.getValue(id))
+            assertEquals(HearthLaunch.scheme(app.packageName), app.fallback)
+            assertEquals(app.fallback, HearthLaunch.fallback(app.link))
+        }
+        TvAppLinks.ALL.filter { it.fallback == null }.forEach { app ->
+            assertTrue(app.link.startsWith("https://"))
+            assertFalse(app.link.contains("hearth.local"))
+            assertEquals(null, HearthLaunch.fallback(app.link))
+        }
         sent.values.forEach { link ->
             assertFalse(link.startsWith("market://"))
-            assertTrue(link.startsWith("https://") || link.startsWith("intent://#Intent;"))
-        }
-        TvAppLinks.ALL.filter { it.link.startsWith("intent:") }.forEach { app ->
-            assertTrue(sent.getValue(app.id).contains("package=${app.packageName}"))
-            assertTrue(sent.getValue(app.id).contains("category=android.intent.category.LEANBACK_LAUNCHER"))
+            assertFalse(link.startsWith("intent:"))
         }
     }
 
     @Test
-    fun `market links and bare package ids become leanback intents`() {
+    fun `rejected links become the hearth trampoline`() {
         assertEquals(
-            TvAppLinks.leanback("org.jellyfin.androidtv"),
+            HearthLaunch.https("org.jellyfin.androidtv"),
             RemoteMessages.normalizeAppLink("market://launch?id=org.jellyfin.androidtv")
         )
         assertEquals(
-            TvAppLinks.leanback("com.netflix.ninja"),
+            HearthLaunch.https("com.netflix.ninja"),
             RemoteMessages.normalizeAppLink("com.netflix.ninja")
+        )
+        assertEquals(
+            HearthLaunch.https("org.jellyfin.androidtv"),
+            RemoteMessages.normalizeAppLink(
+                "intent://#Intent;package=org.jellyfin.androidtv;" +
+                    "action=android.intent.action.MAIN;" +
+                    "category=android.intent.category.LEANBACK_LAUNCHER;end"
+            )
         )
         assertEquals(
             "https://www.youtube.com/watch?v=abc",
             RemoteMessages.normalizeAppLink("https://www.youtube.com/watch?v=abc")
         )
+        assertEquals(
+            "hearth://launch?pkg=org.jellyfin.androidtv",
+            HearthLaunch.fallback("https://hearth.local/launch?pkg=org.jellyfin.androidtv")
+        )
+        assertEquals(null, HearthLaunch.fallback("hearth://launch?pkg=org.jellyfin.androidtv"))
     }
 
     @Test
-    fun `remote error keeps the session`() {
+    fun `remote error does not close and retries the hearth scheme`() {
+        val https = HearthLaunch.https("org.jellyfin.androidtv")
         val rejected = RemoteMessage.newBuilder()
             .setRemoteAppLinkLaunchRequest(
                 net.pcg.hearth.remote.proto.RemoteProto.RemoteAppLinkLaunchRequest.newBuilder()
-                    .setAppLink("market://launch?id=org.jellyfin.androidtv")
+                    .setAppLink(https)
             )
             .build()
         val message = RemoteMessage.newBuilder()
@@ -111,11 +128,15 @@ class RemoteAppLinkTest {
             )
             .build()
         assertFalse(remoteErrorClosesSession(message))
+        assertEquals(https, rejectedAppLink(message))
+        assertEquals(HearthLaunch.scheme("org.jellyfin.androidtv"), HearthLaunch.fallback(rejectedAppLink(message)!!))
         val text = describeRemoteMessage(message)
         assertTrue(text.contains("value=true"))
-        assertTrue(text.contains("app_link market://launch?id=org.jellyfin.androidtv"))
-        assertTrue(text.contains("session kept"))
-        assertFalse(text.startsWith("close"))
+        assertTrue(text.contains("app_link $https"))
+        assertFalse(text.contains("session kept"))
+        val plan = planReconnect(wasUp = true, quietLeft = 0, afterError = true)
+        assertTrue(plan.quiet)
+        assertEquals(0L, plan.delayMs)
     }
 
     private fun sentLink(link: String): String =

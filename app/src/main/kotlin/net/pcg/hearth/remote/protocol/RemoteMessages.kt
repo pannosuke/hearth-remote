@@ -108,18 +108,23 @@ internal object RemoteMessages {
     }
 
     /**
-     * The TV parses [appLinkOrId] with `Intent.parseUri(URI_INTENT_SCHEME)`.
-     * An https URI is sent unchanged. `market://launch?id=` is rewritten:
-     * this Sharp answers `remote_error` and then closes the socket. A bare
-     * package name becomes an explicit leanback intent for the same reason.
+     * The TV parses this string with `Intent.parseUri(URI_INTENT_SCHEME)`.
+     * An https or custom-scheme URI is sent unchanged. This Sharp rejects
+     * `market://` and `intent://` and then closes the socket, so a bare
+     * package, a market link, or a leanback intent becomes the Hearth
+     * launcher's https trampoline.
      */
     fun normalizeAppLink(appLinkOrId: String): String {
         val value = appLinkOrId.trim()
         val marketId = marketPackage(value)
-        if (marketId != null) return TvAppLinks.leanback(marketId)
-        if (value.startsWith("intent:") || "://" in value) return value
+        if (marketId != null) return HearthLaunch.https(marketId)
+        if (value.startsWith("intent:") || value.startsWith("intent://")) {
+            val pkg = intentPackage(value)
+            if (pkg != null) return HearthLaunch.https(pkg)
+        }
+        if ("://" in value || value.startsWith("intent:")) return value
         if (value.isEmpty()) return value
-        return TvAppLinks.leanback(value)
+        return HearthLaunch.https(value)
     }
 
     private fun marketPackage(value: String): String? {
@@ -128,18 +133,50 @@ internal object RemoteMessages {
         val id = value.removePrefix(prefix).substringBefore('&').trim()
         return id.takeIf { it.isNotEmpty() }
     }
+
+    private fun intentPackage(value: String): String? {
+        val marker = "package="
+        val start = value.indexOf(marker)
+        if (start < 0) return null
+        val rest = value.substring(start + marker.length)
+        val end = rest.indexOf(';').let { if (it < 0) rest.length else it }
+        return rest.substring(0, end).trim().takeIf { it.isNotEmpty() }
+    }
+}
+
+/**
+ * Hearth on the TV (`net.pcg.hearth` 4.6) accepts either form and starts
+ * the package. The https form is sent first. `hearth://` is the retry
+ * after `remote_error`.
+ */
+internal object HearthLaunch {
+    private const val HTTPS_PREFIX = "https://hearth.local/launch?pkg="
+    private const val SCHEME_PREFIX = "hearth://launch?pkg="
+
+    fun https(packageName: String): String = HTTPS_PREFIX + packageName
+
+    fun scheme(packageName: String): String = SCHEME_PREFIX + packageName
+
+    /** Scheme form to send after the https trampoline is rejected. */
+    fun fallback(link: String): String? {
+        if (!link.startsWith(HTTPS_PREFIX)) return null
+        val pkg = link.removePrefix(HTTPS_PREFIX).substringBefore('&').trim()
+        if (pkg.isEmpty()) return null
+        return scheme(pkg)
+    }
 }
 
 internal data class TvAppLink(
     val id: String,
     val packageName: String,
-    val link: String
+    val link: String,
+    val fallback: String? = null
 )
 
 /**
- * One link per Apps-tab shortcut. https is used when that app's VIEW filter
- * handles it. Jellyfin has no launch deeplink, and NHK+, Hulu Japan, and the
- * Sharp tuner have no confirmed https filter, so those use a leanback intent.
+ * One row per Apps-tab shortcut. An app's own https VIEW link is sent as-is.
+ * Jellyfin, NHK+, Hulu Japan, and the Sharp tuner have no such link, so they
+ * use the Hearth trampoline, https first and `hearth://` after `remote_error`.
  */
 internal object TvAppLinks {
     const val YOUTUBE = "https://www.youtube.com"
@@ -147,25 +184,20 @@ internal object TvAppLinks {
     const val DISNEY_PLUS = "https://www.disneyplus.com"
     const val PRIME_VIDEO = "https://app.primevideo.com"
     const val TVER = "https://tver.jp"
-    val JELLYFIN = leanback("org.jellyfin.androidtv")
-    val NHK = leanback("jp.nhk.plus.tv")
-    val HULU = leanback("jp.happyon.android")
-    val LIVE_TV = leanback("jp.co.sharp.av.android.aquostvapp")
+    val JELLYFIN = HearthLaunch.https("org.jellyfin.androidtv")
+    val NHK = HearthLaunch.https("jp.nhk.plus.tv")
+    val HULU = HearthLaunch.https("jp.happyon.android")
+    val LIVE_TV = HearthLaunch.https("jp.co.sharp.av.android.aquostvapp")
 
     val ALL: List<TvAppLink> = listOf(
         TvAppLink("youtube", "com.google.android.youtube.tv", YOUTUBE),
         TvAppLink("netflix", "com.netflix.ninja", NETFLIX),
         TvAppLink("disney", "com.disney.disneyplus", DISNEY_PLUS),
         TvAppLink("prime", "com.amazon.amazonvideo.livingroom", PRIME_VIDEO),
-        TvAppLink("jellyfin", "org.jellyfin.androidtv", JELLYFIN),
+        TvAppLink("jellyfin", "org.jellyfin.androidtv", JELLYFIN, HearthLaunch.scheme("org.jellyfin.androidtv")),
         TvAppLink("tver", "jp.co.tver.tvapp", TVER),
-        TvAppLink("nhk", "jp.nhk.plus.tv", NHK),
-        TvAppLink("hulu", "jp.happyon.android", HULU),
-        TvAppLink("live_tv", "jp.co.sharp.av.android.aquostvapp", LIVE_TV)
+        TvAppLink("nhk", "jp.nhk.plus.tv", NHK, HearthLaunch.scheme("jp.nhk.plus.tv")),
+        TvAppLink("hulu", "jp.happyon.android", HULU, HearthLaunch.scheme("jp.happyon.android")),
+        TvAppLink("live_tv", "jp.co.sharp.av.android.aquostvapp", LIVE_TV, HearthLaunch.scheme("jp.co.sharp.av.android.aquostvapp"))
     )
-
-    fun leanback(packageName: String): String =
-        "intent://#Intent;package=$packageName;" +
-            "action=android.intent.action.MAIN;" +
-            "category=android.intent.category.LEANBACK_LAUNCHER;end"
 }

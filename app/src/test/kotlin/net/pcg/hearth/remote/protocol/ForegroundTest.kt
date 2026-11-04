@@ -74,23 +74,30 @@ class ForegroundTest {
     }
 
     @Test
-    fun `subtitle on and off are editable drawer routines`() {
+    fun `subtitle on and off walk the display style list`() {
         val on = listOf(
             MacroStep("IRCO", "0267"),
             MacroStep("WAIT", "900"),
             MacroStep("IRCO", "0152"),
             MacroStep("WAIT", "600"),
-            MacroStep("IRCO", "0120"),
+            MacroStep("IRCO", "0157"),
+            MacroStep("WAIT", "250"),
+            MacroStep("IRCO", "0157"),
+            MacroStep("WAIT", "250"),
+            MacroStep("IRCO", "0157"),
+            MacroStep("WAIT", "250"),
             MacroStep("IRCO", "0152"),
             MacroStep("WAIT", "500"),
             MacroStep("IRCO", "01E4")
         )
-        val off = on.toMutableList().also { it[4] = MacroStep("IRCO", "0157") }
+        val off = on.map { step ->
+            if (step.command == "IRCO" && step.param == "0157") MacroStep("IRCO", "0120") else step
+        }
         assertEquals(on, SubtitleMacro.parse(null))
-        assertEquals(on, SubtitleMacro.parse(""))
         assertEquals(on, SubtitleMacro.parse(SubtitleMacro.ON))
-        assertEquals(off, SubtitleMacro.parse(null, SubtitleMacro.OFF))
         assertEquals(off, SubtitleMacro.parse(SubtitleMacro.OFF, SubtitleMacro.OFF))
+        assertEquals(3, on.count { it.param == "0157" })
+        assertEquals(3, off.count { it.param == "0120" })
         assertEquals(
             listOf(
                 MacroStep("IRCO", "0267"),
@@ -100,10 +107,14 @@ class ForegroundTest {
             SubtitleMacro.parse("IRCO 0267\nWAIT 400\nIRCO 01E4")
         )
         assertEquals(on, SubtitleMacro.parse("not a macro"))
-        assertEquals(off, SubtitleMacro.parse("not a macro", SubtitleMacro.OFF))
-        assertTrue(SubtitleMacro.isLegacySinglePress("IRCO 0267"))
-        assertTrue(SubtitleMacro.isLegacySinglePress("IRCO0267"))
-        assertFalse(SubtitleMacro.isLegacySinglePress(SubtitleMacro.ON))
+        val v028On = "IRCO 0267\nWAIT 900\nIRCO 0152\nWAIT 600\nIRCO 0120\nIRCO 0152\nWAIT 500\nIRCO 01E4"
+        val v028Off = "IRCO 0267\nWAIT 900\nIRCO 0152\nWAIT 600\nIRCO 0157\nIRCO 0152\nWAIT 500\nIRCO 01E4"
+        assertEquals(SubtitleMacro.ON, SubtitleMacro.replacementFor(v028On, on = true))
+        assertEquals(SubtitleMacro.OFF, SubtitleMacro.replacementFor("IRCO0120\n".let { v028Off.replace(" ", "") }, on = false))
+        assertEquals(SubtitleMacro.ON, SubtitleMacro.replacementFor("IRCO 0267", on = true))
+        assertEquals(null, SubtitleMacro.replacementFor("IRCO 0267\nWAIT 400\nIRCO 01E4", on = true))
+        assertEquals(null, SubtitleMacro.replacementFor(SubtitleMacro.ON, on = true))
+        assertEquals(null, SubtitleMacro.replacementFor(SubtitleMacro.OFF, on = false))
     }
 
     @Test

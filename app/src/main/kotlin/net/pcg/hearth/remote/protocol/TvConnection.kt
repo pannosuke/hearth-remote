@@ -292,7 +292,15 @@ class TvConnection(private val context: Context) {
     fun launchNetflix() = launchApp(TvAppLinks.NETFLIX)
     fun launchDisneyPlus() = launchApp(TvAppLinks.DISNEY_PLUS)
     fun launchAmazonVideo() = launchApp(TvAppLinks.PRIME_VIDEO)
-    fun launchJellyfin() = launchApp(TvAppLinks.JELLYFIN)
+    fun launchJellyfin() {
+        val foreground = remoteProtocol.currentAppPackage.value
+        val pkg = HearthLaunch.jellyfinPackage(foreground)
+        val link = HearthLaunch.scheme(pkg)
+        remoteProtocol.logSession(
+            "jellyfin launch pkg=$pkg foreground=${foreground ?: "none"} link=$link"
+        )
+        launchApp(link)
+    }
     fun launchTver() = launchApp(TvAppLinks.TVER)
     fun launchNhk() = launchApp(TvAppLinks.NHK)
     fun launchHulu() = launchApp(TvAppLinks.HULU)

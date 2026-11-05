@@ -25,6 +25,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -38,6 +40,7 @@ import net.pcg.hearth.remote.protocol.GuideStatus
 import net.pcg.hearth.remote.protocol.NowAndNext
 import net.pcg.hearth.remote.protocol.OsakaChannels
 import net.pcg.hearth.remote.protocol.OsakaGuide
+import net.pcg.hearth.remote.protocol.SharpIpCommands
 import net.pcg.hearth.remote.protocol.TerrestrialChannel
 import net.pcg.hearth.remote.protocol.TvConnection
 import net.pcg.hearth.remote.protocol.XmltvGuide
@@ -126,11 +129,11 @@ private fun TerrestrialScreen(tvConnection: TvConnection, guide: OsakaGuide) {
             LargeIconButton(
                 onClick = {
                     view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                    tvConnection.nudgeVolume(1)
+                    tvConnection.nudgeVolume(-1)
                 },
                 modifier = Modifier.weight(1f).height(96.dp)
             ) {
-                Icon(Icons.AutoMirrored.Filled.VolumeUp, stringResource(R.string.btn_volume_up), Modifier.size(40.dp))
+                Icon(Icons.AutoMirrored.Filled.VolumeDown, stringResource(R.string.btn_volume_down), Modifier.size(40.dp))
             }
             Text(
                 text = tuner.volume?.toString() ?: "—",
@@ -141,13 +144,17 @@ private fun TerrestrialScreen(tvConnection: TvConnection, guide: OsakaGuide) {
             LargeIconButton(
                 onClick = {
                     view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                    tvConnection.nudgeVolume(-1)
+                    tvConnection.nudgeVolume(1)
                 },
                 modifier = Modifier.weight(1f).height(96.dp)
             ) {
-                Icon(Icons.AutoMirrored.Filled.VolumeDown, stringResource(R.string.btn_volume_down), Modifier.size(40.dp))
+                Icon(Icons.AutoMirrored.Filled.VolumeUp, stringResource(R.string.btn_volume_up), Modifier.size(40.dp))
             }
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        VolumePresetRow(current = tuner.volume, onSelect = tvConnection::setVolume)
 
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -409,7 +416,9 @@ private fun channelName(channel: TerrestrialChannel): String {
 
 @Composable
 private fun GenericRemoteScreen(tvConnection: TvConnection, packageName: String?) {
+    val tuner by tvConnection.tunerStatus.collectAsState()
     val view = LocalView.current
+    LaunchedEffect(Unit) { tvConnection.refreshTuner() }
     fun tap(action: () -> Unit) {
         view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
         action()
@@ -479,12 +488,50 @@ private fun GenericRemoteScreen(tvConnection: TvConnection, packageName: String?
 
         Spacer(Modifier.weight(1f))
 
+        VolumePresetRow(current = tuner.volume, onSelect = tvConnection::setVolume)
+
+        Spacer(Modifier.height(8.dp))
+
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            LargeIconButton(onClick = { tap { tvConnection.sendVolumeDown() } }, modifier = Modifier.weight(1f).height(80.dp)) {
+                Icon(Icons.AutoMirrored.Filled.VolumeDown, stringResource(R.string.btn_volume_down), Modifier.size(36.dp))
+            }
             LargeIconButton(onClick = { tap { tvConnection.sendVolumeUp() } }, modifier = Modifier.weight(1f).height(80.dp)) {
                 Icon(Icons.AutoMirrored.Filled.VolumeUp, stringResource(R.string.btn_volume_up), Modifier.size(36.dp))
             }
-            LargeIconButton(onClick = { tap { tvConnection.sendVolumeDown() } }, modifier = Modifier.weight(1f).height(80.dp)) {
-                Icon(Icons.AutoMirrored.Filled.VolumeDown, stringResource(R.string.btn_volume_down), Modifier.size(36.dp))
+        }
+    }
+}
+
+@Composable
+internal fun VolumePresetRow(current: Int?, onSelect: (Int) -> Unit) {
+    val view = LocalView.current
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        SharpIpCommands.PRESET_LEVELS.forEach { level ->
+            val selected = current == level
+            val description = stringResource(R.string.btn_volume_preset, level)
+            FilledTonalButton(
+                onClick = {
+                    view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                    onSelect(level)
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp)
+                    .clearAndSetSemantics { contentDescription = description },
+                colors = if (selected) {
+                    ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    ButtonDefaults.filledTonalButtonColors()
+                }
+            ) {
+                Text(level.toString(), style = MaterialTheme.typography.titleMedium)
             }
         }
     }

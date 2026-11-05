@@ -46,6 +46,7 @@
     <string name="btn_volume_up">音量を上げる</string>
     <string name="btn_volume_down">音量を下げる</string>
     <string name="btn_volume_mute">ミュート</string>
+    <string name="btn_volume_preset">音量を%1$dにする</string>
     <string name="btn_channel_up">チャンネル+</string>
     <string name="btn_channel_down">チャンネル-</string>
     <string name="btn_subtitles_on">字幕オン</string>

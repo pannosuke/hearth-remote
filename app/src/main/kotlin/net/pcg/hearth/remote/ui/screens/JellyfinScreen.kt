@@ -130,6 +130,7 @@ internal fun JellyfinScreen(
                         view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                         tvConnection.nudgeVolume(-1)
                     },
+                    onPreset = tvConnection::setVolume,
                     onMute = {
                         view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                         tvConnection.toggleTunerMute()
@@ -425,6 +426,7 @@ private fun VolumeRow(
     muted: Boolean?,
     onUp: () -> Unit,
     onDown: () -> Unit,
+    onPreset: (Int) -> Unit,
     onMute: () -> Unit
 ) {
     Row(
@@ -432,8 +434,8 @@ private fun VolumeRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Button(onClick = onUp, modifier = Modifier.weight(1f).height(80.dp), shape = RoundedCornerShape(24.dp)) {
-            Icon(Icons.AutoMirrored.Filled.VolumeUp, stringResource(R.string.btn_volume_up), Modifier.size(36.dp))
+        Button(onClick = onDown, modifier = Modifier.weight(1f).height(80.dp), shape = RoundedCornerShape(24.dp)) {
+            Icon(Icons.AutoMirrored.Filled.VolumeDown, stringResource(R.string.btn_volume_down), Modifier.size(36.dp))
         }
         Text(
             text = volume?.toString() ?: "—",
@@ -441,10 +443,11 @@ private fun VolumeRow(
             textAlign = TextAlign.Center,
             modifier = Modifier.width(72.dp)
         )
-        Button(onClick = onDown, modifier = Modifier.weight(1f).height(80.dp), shape = RoundedCornerShape(24.dp)) {
-            Icon(Icons.AutoMirrored.Filled.VolumeDown, stringResource(R.string.btn_volume_down), Modifier.size(36.dp))
+        Button(onClick = onUp, modifier = Modifier.weight(1f).height(80.dp), shape = RoundedCornerShape(24.dp)) {
+            Icon(Icons.AutoMirrored.Filled.VolumeUp, stringResource(R.string.btn_volume_up), Modifier.size(36.dp))
         }
     }
+    VolumePresetRow(current = volume, onSelect = onPreset)
     FilledTonalButton(
         onClick = onMute,
         modifier = Modifier.fillMaxWidth().height(56.dp),

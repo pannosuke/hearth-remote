@@ -28,7 +28,7 @@ The phone switches remotes from `RemoteImeKeyInject` (`remote_ime_key_inject`, f
 | Feature | Mechanism | Feasible in v0.2? |
 | --- | --- | --- |
 | Switch the on-screen remote when the TV app changes | Remote protocol `RemoteImeKeyInject.app_info.app_package` | Yes. Needs the IME bit, which v0.1.7 requests. The TV sends this when focus changes, not on a poll. |
-| Terrestrial: volume up/down, mute | Sharp IP `VOLM` 0–100 and `MUTE` (0 toggle, 1 on, 2 off). The level and mute state are read back. | Yes. This is what v0.2.0 does. |
+| Terrestrial: volume up/down, mute | Sharp IP `VOLM` 0–100 and `MUTE` (0 toggle, 1 on, 2 off). The level and mute state are read back. Volume down is the left button and volume up is the right button. Presets 18, 24, and 33 each send one `VOLM` (`VOLM18  `, `VOLM24  `, `VOLM33  ` plus CR) and then read `VOLM????`. | Yes. v0.2.0, with the left/right order and presets after v0.2.9. |
 | Terrestrial: channel up/down | Sharp IP `CHUP` / `CHDW`, then `CHRC????` for the current channel | Yes. v0.2.0. |
 | Terrestrial: channel cards (10, 8, 7, 6, then 1, 2, 4, 12, …) | Sharp IP `CHRC` plus the one-touch button number, not a digit-key sequence | Yes. v0.2.0. Osaka names: YTV, KTV, TVO, ABC, NHK, NHK E, MBS, 12, SUN. |
 | Terrestrial: what's on now | Phone fetches dbghelp/JCOM-TV-EPG `jcom.xml` (XMLTV, no key) and shows the current title, time range, progress, and the next programme | Yes. v0.2.2. Button 12 has no listing. |

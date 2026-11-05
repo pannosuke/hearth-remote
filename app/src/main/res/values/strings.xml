@@ -46,6 +46,7 @@
     <string name="btn_volume_up">Volume Up</string>
     <string name="btn_volume_down">Volume Down</string>
     <string name="btn_volume_mute">Mute</string>
+    <string name="btn_volume_preset">Set volume to %1$d</string>
     <string name="btn_channel_up">Channel Up</string>
     <string name="btn_channel_down">Channel Down</string>
     <string name="btn_subtitles_on">Subtitles on</string>

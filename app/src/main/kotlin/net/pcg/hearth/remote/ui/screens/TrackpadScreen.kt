@@ -202,22 +202,24 @@ fun TrackpadScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                RemoteButton(
-                    icon = Icons.AutoMirrored.Filled.VolumeUp,
-                    contentDescription = stringResource(R.string.btn_volume_up),
-                    onClick = {
-                        view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                        tvConnection.sendVolumeUp()
-                    }
-                )
-                Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 RemoteButton(
                     icon = Icons.AutoMirrored.Filled.VolumeDown,
                     contentDescription = stringResource(R.string.btn_volume_down),
                     onClick = {
                         view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                         tvConnection.sendVolumeDown()
+                    }
+                )
+                RemoteButton(
+                    icon = Icons.AutoMirrored.Filled.VolumeUp,
+                    contentDescription = stringResource(R.string.btn_volume_up),
+                    onClick = {
+                        view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                        tvConnection.sendVolumeUp()
                     }
                 )
             }

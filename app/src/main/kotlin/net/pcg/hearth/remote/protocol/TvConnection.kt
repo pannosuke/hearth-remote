@@ -324,6 +324,32 @@ class TvConnection(private val context: Context) {
         }
     }
 
+    /**
+     * Set the tuner volume to an exact level. The wire command is `VOLM`
+     * plus the level padded to 4 characters, then CR (`VOLM18  \r` for 18).
+     */
+    fun setVolume(level: Int) {
+        val target = level.coerceIn(0, 100)
+        ioScope.launch {
+            try {
+                sharpIp.exclusive { send ->
+                    val reply = send("VOLM", target.toString())
+                    if (reply == "ERR") {
+                        remoteProtocol.reportError(context.getString(R.string.ip_control_failed))
+                        return@exclusive
+                    }
+                    val shown = send("VOLM", "????").toIntOrNull() ?: target
+                    _tunerStatus.value = _tunerStatus.value.copy(volume = shown)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Volume set failed: ${e.message}")
+                remoteProtocol.reportError(context.getString(R.string.ip_control_failed))
+            }
+        }
+    }
+
     fun nudgeVolume(delta: Int) {
         ioScope.launch {
             try {

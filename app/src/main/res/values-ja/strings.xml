@@ -43,6 +43,17 @@
     <string name="power_standby">待機</string>
     <string name="power_unknown">電源</string>
     <string name="btn_play_pause">再生/一時停止</string>
+    <string name="btn_next">次へ</string>
+    <string name="btn_rewind">巻き戻し</string>
+    <string name="btn_fast_forward">早送り</string>
+    <string name="btn_captions">字幕</string>
+    <string name="youtube_title">YouTube</string>
+    <string name="youtube_profile_name">Eric</string>
+    <string name="youtube_profile_hint">テレビのYouTubeで開いているアカウントで再生します。</string>
+    <string name="youtube_empty">直近36時間のNHL試合ハイライトはありません。</string>
+    <string name="youtube_loading">Sportsnetを確認しています…</string>
+    <string name="youtube_unavailable">Sportsnetから応答がありません。しばらくして再試行します。</string>
+    <string name="youtube_published">%1$s 日本時間</string>
     <string name="btn_volume_up">音量を上げる</string>
     <string name="btn_volume_down">音量を下げる</string>
     <string name="btn_volume_mute">ミュート</string>

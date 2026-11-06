@@ -268,6 +268,8 @@ class TvConnection(private val context: Context) {
     fun sendStop() = remoteProtocol.sendKeyPress(RemoteKeyCode.KEYCODE_MEDIA_STOP)
     fun sendRewind() = remoteProtocol.sendKeyPress(RemoteKeyCode.KEYCODE_MEDIA_REWIND)
     fun sendFastForward() = remoteProtocol.sendKeyPress(RemoteKeyCode.KEYCODE_MEDIA_FAST_FORWARD)
+    fun sendNext() = remoteProtocol.sendKeyPress(RemoteKeyCode.KEYCODE_MEDIA_NEXT)
+    fun sendCaptions() = remoteProtocol.sendKeyPress(RemoteKeyCode.KEYCODE_CAPTIONS)
     
     fun sendNumber(n: Int) {
         val keyCode = when (n) {

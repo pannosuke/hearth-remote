@@ -20,6 +20,10 @@ class ForegroundTest {
         assertTrue(Foreground.isJellyfin("org.jellyfin.androidtv"))
         assertFalse(Foreground.isJellyfin("com.google.android.youtube.tv"))
         assertFalse(Foreground.isJellyfin(null))
+        assertTrue(Foreground.isYouTube(Foreground.YOUTUBE_PACKAGE))
+        assertTrue(Foreground.isYouTube("com.google.android.youtube.tv"))
+        assertFalse(Foreground.isYouTube("com.google.android.youtube"))
+        assertFalse(Foreground.isYouTube(null))
     }
 
     @Test

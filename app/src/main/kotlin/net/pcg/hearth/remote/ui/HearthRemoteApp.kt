@@ -18,6 +18,8 @@ import net.pcg.hearth.remote.protocol.HttpGuideFetch
 import net.pcg.hearth.remote.protocol.HttpJellyfinTransport
 import net.pcg.hearth.remote.protocol.JellyfinRemote
 import net.pcg.hearth.remote.protocol.OsakaGuide
+import net.pcg.hearth.remote.protocol.SportsnetFeed
+import net.pcg.hearth.remote.protocol.SportsnetGuide
 import net.pcg.hearth.remote.protocol.TvConnection
 import net.pcg.hearth.remote.ui.components.VersionLabel
 import net.pcg.hearth.remote.ui.screens.*
@@ -33,6 +35,12 @@ fun HearthRemoteApp() {
             fetch = HttpGuideFetch()
         )
     }
+    val highlights = remember {
+        SportsnetGuide(
+            directory = File(context.filesDir, "youtube"),
+            fetch = HttpGuideFetch(SportsnetFeed.FEED_URL)
+        )
+    }
     val jellyfin = remember {
         JellyfinRemote(
             store = AndroidJellyfinStore(context),
@@ -41,11 +49,13 @@ fun HearthRemoteApp() {
             log = { line -> tvConnection.note(line) }
         )
     }
-    DisposableEffect(guide) {
+    DisposableEffect(guide, highlights) {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
         guide.start(scope)
+        highlights.start(scope)
         onDispose {
             guide.stop()
+            highlights.stop()
             scope.cancel()
         }
     }
@@ -103,6 +113,7 @@ fun HearthRemoteApp() {
                                 Screen.Remote -> RemoteShell(
                                     tvConnection = tvConnection,
                                     guide = guide,
+                                    highlights = highlights,
                                     jellyfin = jellyfin,
                                     onOpenSettings = { viewModel.navigateTo(Screen.Settings) }
                                 )

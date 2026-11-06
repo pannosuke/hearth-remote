@@ -41,6 +41,7 @@ import net.pcg.hearth.remote.protocol.NowAndNext
 import net.pcg.hearth.remote.protocol.OsakaChannels
 import net.pcg.hearth.remote.protocol.OsakaGuide
 import net.pcg.hearth.remote.protocol.SharpIpCommands
+import net.pcg.hearth.remote.protocol.SportsnetGuide
 import net.pcg.hearth.remote.protocol.TerrestrialChannel
 import net.pcg.hearth.remote.protocol.TvConnection
 import net.pcg.hearth.remote.protocol.XmltvGuide
@@ -49,6 +50,7 @@ import net.pcg.hearth.remote.protocol.XmltvGuide
 internal fun RemoteShell(
     tvConnection: TvConnection,
     guide: OsakaGuide,
+    highlights: SportsnetGuide,
     jellyfin: JellyfinRemote,
     onOpenSettings: () -> Unit
 ) {
@@ -68,6 +70,7 @@ internal fun RemoteShell(
     when {
         terrestrial -> TerrestrialScreen(tvConnection, guide)
         Foreground.isJellyfin(packageName) -> JellyfinScreen(tvConnection, jellyfin, onOpenSettings)
+        Foreground.isYouTube(packageName) -> YouTubeScreen(tvConnection, highlights)
         else -> GenericRemoteScreen(tvConnection, packageName)
     }
 }
@@ -538,7 +541,7 @@ internal fun VolumePresetRow(current: Int?, onSelect: (Int) -> Unit) {
 }
 
 @Composable
-private fun LargeIconButton(
+internal fun LargeIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit

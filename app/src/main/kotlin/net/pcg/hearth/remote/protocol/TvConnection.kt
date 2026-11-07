@@ -17,8 +17,8 @@ class TvConnection(private val context: Context) {
     }
     
     private val certificateManager = CertificateManager(context)
-    private val pairingProtocol = PairingProtocol(certificateManager)
-    private val remoteProtocol = RemoteProtocol(certificateManager)
+    private val pairingProtocol = PairingProtocol(certificateManager, context)
+    private val remoteProtocol = RemoteProtocol(certificateManager, context)
     private val settingsRepository = SettingsRepository(context)
     private val sharpIp = SharpIpControl(hostProvider = { settingsRepository.getTvHost() })
     private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -105,14 +105,14 @@ class TvConnection(private val context: Context) {
                     }
                 }
             } catch (e: Exception) {
-                _pairingState.value = PairingState.Error(e.message ?: "Connection failed")
+                _pairingState.value = PairingState.Error(e.message ?: context.getString(R.string.setup_error))
             }
         }
     }
     
     suspend fun submitPairingCode(code: String) {
         val socket = pairingSocket ?: run {
-            _pairingState.value = PairingState.Error("No pairing session")
+            _pairingState.value = PairingState.Error(context.getString(R.string.pairing_no_session))
             return
         }
         
@@ -135,7 +135,9 @@ class TvConnection(private val context: Context) {
                     }
                 }
             } catch (e: Exception) {
-                _pairingState.value = PairingState.Error(e.message ?: "Pairing failed")
+                _pairingState.value = PairingState.Error(
+                    e.message ?: context.getString(R.string.pairing_failed_detail, "")
+                )
             } finally {
                 try {
                     socket.close()

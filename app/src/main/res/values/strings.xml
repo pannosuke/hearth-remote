@@ -18,6 +18,12 @@
     <string name="pairing_submit">Pair</string>
     <string name="pairing_cancel">Cancel</string>
     <string name="pairing_error">Invalid code, please try again</string>
+    <string name="pairing_code_label">Code</string>
+    <string name="pairing_no_session">No pairing session</string>
+    <string name="pairing_failed_detail">Pairing failed: %1$s</string>
+    <string name="pairing_completion_failed">Pairing could not be finished: %1$s</string>
+    <string name="pairing_rejected">The TV rejected pairing (%1$s).</string>
+    <string name="pairing_unexpected">Unexpected reply from the TV (%1$s).</string>
     
     <!-- Remote -->
     <string name="remote_disconnected">Disconnected</string>
@@ -25,6 +31,9 @@
     <string name="remote_connected">Connected</string>
     <string name="remote_last_error">Last error: %1$s</string>
     <string name="ip_control_failed">Sharp IP control failed</string>
+    <string name="remote_command_not_sent">Remote command was not sent</string>
+    <string name="remote_tv_rejected">The TV rejected a command (%1$s).</string>
+    <string name="hearth_launch_rejected">Hearth rejected %1$s (error value=%2$s). The Hearth launcher on the TV needs a fix.</string>
     
     <!-- Navigation -->
     <string name="nav_remote">Remote</string>
@@ -61,6 +70,7 @@
     <string name="btn_volume_preset">Set volume to %1$d</string>
     <string name="btn_channel_up">Channel Up</string>
     <string name="btn_channel_down">Channel Down</string>
+    <string name="btn_channel_mark">CH</string>
     <string name="btn_subtitles_on">Subtitles on</string>
     <string name="btn_subtitles_off">Subtitles off</string>
     <string name="toast_subtitles_on">Subtitles on…</string>
@@ -115,6 +125,8 @@
     
     <!-- Apps -->
     <string name="apps_title">Launch App</string>
+    <string name="apps_deep_links">Deep links</string>
+    <string name="apps_deep_links_hint">Tap and hold an app button to enter a custom deep link URL.</string>
     <string name="app_youtube">YouTube</string>
     <string name="app_netflix">Netflix</string>
     <string name="app_disney">Disney+</string>
@@ -127,6 +139,12 @@
     
     <!-- Settings -->
     <string name="settings_title">Settings</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_language_system">System default</string>
+    <string name="settings_language_english">English</string>
+    <string name="settings_language_japanese">日本語</string>
+    <string name="settings_forget_message">Are you sure you want to forget the TV pairing? You will need to pair again.</string>
+    <string name="settings_forget_action">Forget</string>
     <string name="settings_tv_address">TV Address</string>
     <string name="settings_connection_log">Connection log</string>
     <string name="settings_forget_pairing">Forget Pairing</string>
@@ -140,6 +158,7 @@
     <string name="session_log_back">Back</string>
     <string name="settings_about">About</string>
     <string name="settings_version">Version %s</string>
+    <string name="version_label">v%1$s (%2$d)</string>
     
     <!-- Accessibility -->
     <string name="a11y_trackpad">Trackpad area. Swipe to navigate, tap to select.</string>

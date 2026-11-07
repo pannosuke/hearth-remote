@@ -15,8 +15,8 @@ android {
         applicationId = "net.pcg.hearth.remote"
         minSdk = 34
         targetSdk = 35
-        versionCode = 213
-        versionName = "0.2.13"
+        versionCode = 300
+        versionName = "0.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -91,6 +91,7 @@ protobuf {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)

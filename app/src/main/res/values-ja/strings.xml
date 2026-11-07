@@ -18,13 +18,22 @@
     <string name="pairing_submit">ペアリング</string>
     <string name="pairing_cancel">キャンセル</string>
     <string name="pairing_error">コードが正しくありません。もう一度お試しください</string>
+    <string name="pairing_code_label">コード</string>
+    <string name="pairing_no_session">ペアリングのセッションがありません</string>
+    <string name="pairing_failed_detail">ペアリングに失敗しました（%1$s）</string>
+    <string name="pairing_completion_failed">ペアリングを完了できませんでした（%1$s）</string>
+    <string name="pairing_rejected">テレビがペアリングを拒否しました（%1$s）。</string>
+    <string name="pairing_unexpected">テレビから予期しない応答がありました（%1$s）。</string>
     
     <!-- Remote -->
-    <string name="remote_disconnected">切断</string>
+    <string name="remote_disconnected">未接続</string>
     <string name="remote_reconnecting">再接続中…</string>
     <string name="remote_connected">接続済み</string>
     <string name="remote_last_error">直前のエラー: %1$s</string>
     <string name="ip_control_failed">シャープIP制御に失敗しました</string>
+    <string name="remote_command_not_sent">リモコンの操作を送れませんでした</string>
+    <string name="remote_tv_rejected">テレビが操作を拒否しました（%1$s）。</string>
+    <string name="hearth_launch_rejected">Hearthが %1$s を拒否しました（値 %2$s）。テレビのHearthランチャーの修正が必要です。</string>
     
     <!-- Navigation -->
     <string name="nav_remote">リモコン</string>
@@ -57,17 +66,18 @@
     <string name="youtube_published">%1$s 日本時間</string>
     <string name="btn_volume_up">音量を上げる</string>
     <string name="btn_volume_down">音量を下げる</string>
-    <string name="btn_volume_mute">ミュート</string>
+    <string name="btn_volume_mute">消音</string>
     <string name="btn_volume_preset">音量を%1$dにする</string>
     <string name="btn_channel_up">チャンネル+</string>
     <string name="btn_channel_down">チャンネル-</string>
+    <string name="btn_channel_mark">CH</string>
     <string name="btn_subtitles_on">字幕オン</string>
     <string name="btn_subtitles_off">字幕オフ</string>
     <string name="toast_subtitles_on">字幕オン…</string>
     <string name="toast_subtitles_off">字幕オフ…</string>
-    <string name="live_tv_title">地上波</string>
+    <string name="live_tv_title">地デジ</string>
     <string name="overlay_title">オーバーレイ</string>
-    <string name="overlay_unavailable">オーバーレイ不可</string>
+    <string name="overlay_unavailable">オーバーレイは使えません</string>
     <string name="overlay_wxpill">気温</string>
     <string name="overlay_quake">地震</string>
     <string name="overlay_warn">警報</string>
@@ -83,7 +93,7 @@
     <string name="jellyfin_sub_ja">日本語</string>
     <string name="jellyfin_sub_en">英語</string>
     <string name="jellyfin_sub_off">オフ</string>
-    <string name="jellyfin_up_next">つぎに再生</string>
+    <string name="jellyfin_up_next">次に再生</string>
     <string name="jellyfin_no_session">Jellyfinのセッションがありません。テレビでJellyfinを開いてください。</string>
     <string name="jellyfin_request_failed">Jellyfinから応答がありません</string>
     <string name="jellyfin_pick_session">テレビを選ぶ</string>
@@ -97,12 +107,12 @@
     <string name="settings_jellyfin_failed">サインインできませんでした</string>
     <string name="settings_jellyfin_unauthorized">Jellyfinのセッションが切れました。もう一度サインインしてください。</string>
     <string name="generic_remote_title">リモコン</string>
-    <string name="mute_on">ミュート中</string>
-    <string name="mute_off">音声オン</string>
+    <string name="mute_on">消音中</string>
+    <string name="mute_off">音あり</string>
     <string name="channel_unknown">チャンネルなし</string>
     <string name="channel_button">ボタン %1$d</string>
-    <string name="now_playing_placeholder">いまの番組</string>
-    <string name="epg_next">つぎ: %1$s</string>
+    <string name="now_playing_placeholder">今の番組</string>
+    <string name="epg_next">次: %1$s</string>
     <string name="epg_unavailable">番組表を取得できません</string>
     <string name="ch_ytv">読売テレビ</string>
     <string name="ch_ktv">関西テレビ</string>
@@ -115,6 +125,8 @@
     
     <!-- Apps -->
     <string name="apps_title">アプリを起動</string>
+    <string name="apps_deep_links">ディープリンク</string>
+    <string name="apps_deep_links_hint">アプリを長押しすると、ディープリンクのURLを入力できます。</string>
     <string name="app_youtube">YouTube</string>
     <string name="app_netflix">Netflix</string>
     <string name="app_disney">Disney+</string>
@@ -123,10 +135,16 @@
     <string name="app_tver">TVer</string>
     <string name="app_nhk">NHK</string>
     <string name="app_hulu">Hulu</string>
-    <string name="app_live_tv">地上波</string>
+    <string name="app_live_tv">地デジ</string>
     
     <!-- Settings -->
     <string name="settings_title">設定</string>
+    <string name="settings_language">言語</string>
+    <string name="settings_language_system">システムに合わせる</string>
+    <string name="settings_language_english">English</string>
+    <string name="settings_language_japanese">日本語</string>
+    <string name="settings_forget_message">テレビとのペアリングを解除しますか？もう一度ペアリングが必要です。</string>
+    <string name="settings_forget_action">解除</string>
     <string name="settings_tv_address">テレビのアドレス</string>
     <string name="settings_connection_log">接続ログ</string>
     <string name="settings_forget_pairing">ペアリングを解除</string>
@@ -140,6 +158,7 @@
     <string name="session_log_back">戻る</string>
     <string name="settings_about">このアプリについて</string>
     <string name="settings_version">バージョン %s</string>
+    <string name="version_label">v%1$s (%2$d)</string>
     
     <!-- Accessibility -->
     <string name="a11y_trackpad">トラックパッドエリア。スワイプで移動、タップで選択</string>

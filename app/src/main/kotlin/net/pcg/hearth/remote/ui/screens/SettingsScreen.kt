@@ -1,5 +1,6 @@
 package net.pcg.hearth.remote.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -16,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import net.pcg.hearth.remote.BuildConfig
 import net.pcg.hearth.remote.R
+import net.pcg.hearth.remote.ui.AppLanguage
 import net.pcg.hearth.remote.data.SettingsRepository
 import net.pcg.hearth.remote.protocol.JellyfinProblem
 import net.pcg.hearth.remote.protocol.JellyfinRemote
@@ -70,6 +72,32 @@ internal fun SettingsScreen(
             }
         )
         
+        HorizontalDivider()
+
+        Text(
+            text = stringResource(R.string.settings_language),
+            style = MaterialTheme.typography.titleMedium
+        )
+        AppLanguage.entries.forEach { choice ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        if (AppLanguage.current() != choice) choice.apply()
+                    },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = AppLanguage.current() == choice,
+                    onClick = {
+                        if (AppLanguage.current() != choice) choice.apply()
+                    }
+                )
+                Text(stringResource(choice.label))
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
         HorizontalDivider()
 
         OverlaySettingsSection(overlays)
@@ -248,7 +276,7 @@ internal fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showForgetDialog = false },
             title = { Text(stringResource(R.string.settings_forget_pairing)) },
-            text = { Text("Are you sure you want to forget the TV pairing? You will need to pair again.") },
+            text = { Text(stringResource(R.string.settings_forget_message)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -256,12 +284,12 @@ internal fun SettingsScreen(
                         onForgetPairing()
                     }
                 ) {
-                    Text("Forget", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.settings_forget_action), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showForgetDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.pairing_cancel))
                 }
             }
         )

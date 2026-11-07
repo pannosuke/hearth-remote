@@ -77,14 +77,14 @@ fun AppsScreen(
         Spacer(modifier = Modifier.height(24.dp))
         
         Text(
-            text = "Deep Links",
+            text = stringResource(R.string.apps_deep_links),
             style = MaterialTheme.typography.titleMedium
         )
         
         Spacer(modifier = Modifier.height(8.dp))
         
         Text(
-            text = "Tap and hold an app button to enter a custom deep link URL.",
+            text = stringResource(R.string.apps_deep_links_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

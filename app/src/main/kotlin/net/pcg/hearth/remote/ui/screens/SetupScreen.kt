@@ -118,7 +118,7 @@ fun SetupScreen(
                             pairingCode = it.uppercase()
                         }
                     },
-                    label = { Text("Code") },
+                    label = { Text(stringResource(R.string.pairing_code_label)) },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Ascii,
                         imeAction = ImeAction.Done

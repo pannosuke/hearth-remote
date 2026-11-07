@@ -19,12 +19,14 @@ import net.pcg.hearth.remote.R
 import net.pcg.hearth.remote.data.SettingsRepository
 import net.pcg.hearth.remote.protocol.JellyfinProblem
 import net.pcg.hearth.remote.protocol.JellyfinRemote
+import net.pcg.hearth.remote.protocol.OverlayController
 import net.pcg.hearth.remote.protocol.TvConnection
 
 @Composable
 internal fun SettingsScreen(
     tvConnection: TvConnection,
     jellyfin: JellyfinRemote,
+    overlays: OverlayController,
     onOpenLog: () -> Unit,
     onForgetPairing: () -> Unit
 ) {
@@ -68,6 +70,11 @@ internal fun SettingsScreen(
             }
         )
         
+        HorizontalDivider()
+
+        OverlaySettingsSection(overlays)
+
+        Spacer(modifier = Modifier.height(8.dp))
         HorizontalDivider()
 
         Text(

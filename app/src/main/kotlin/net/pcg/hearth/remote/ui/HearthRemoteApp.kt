@@ -14,10 +14,13 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import net.pcg.hearth.remote.BuildConfig
 import net.pcg.hearth.remote.data.AndroidJellyfinStore
+import net.pcg.hearth.remote.data.SettingsRepository
+import net.pcg.hearth.remote.protocol.HearthOverlay
 import net.pcg.hearth.remote.protocol.HttpGuideFetch
 import net.pcg.hearth.remote.protocol.HttpJellyfinTransport
 import net.pcg.hearth.remote.protocol.JellyfinRemote
 import net.pcg.hearth.remote.protocol.OsakaGuide
+import net.pcg.hearth.remote.protocol.OverlayController
 import net.pcg.hearth.remote.protocol.SportsnetFeed
 import net.pcg.hearth.remote.protocol.SportsnetGuide
 import net.pcg.hearth.remote.protocol.TvConnection
@@ -42,6 +45,12 @@ fun HearthRemoteApp() {
             playlist = HttpGuideFetch(SportsnetFeed.PLAYLIST_FEED_URL)
         )
     }
+    val overlays = remember {
+        val settings = SettingsRepository(context)
+        OverlayController(
+            HearthOverlay(hostProvider = { settings.getTvHost() ?: settings.getDefaultTvHost() })
+        )
+    }
     val jellyfin = remember {
         JellyfinRemote(
             store = AndroidJellyfinStore(context),
@@ -50,13 +59,14 @@ fun HearthRemoteApp() {
             log = { line -> tvConnection.note(line) }
         )
     }
-    DisposableEffect(guide, highlights) {
+    DisposableEffect(guide, highlights, overlays) {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
         guide.start(scope)
         highlights.start(scope)
         onDispose {
             guide.stop()
             highlights.stop()
+            overlays.close()
             scope.cancel()
         }
     }
@@ -116,6 +126,7 @@ fun HearthRemoteApp() {
                                     guide = guide,
                                     highlights = highlights,
                                     jellyfin = jellyfin,
+                                    overlays = overlays,
                                     onOpenSettings = { viewModel.navigateTo(Screen.Settings) }
                                 )
                                 Screen.Trackpad -> TrackpadScreen(tvConnection = tvConnection)
@@ -123,6 +134,7 @@ fun HearthRemoteApp() {
                                 Screen.Settings -> SettingsScreen(
                                     tvConnection = tvConnection,
                                     jellyfin = jellyfin,
+                                    overlays = overlays,
                                     onOpenLog = { viewModel.navigateTo(Screen.SessionLog) },
                                     onForgetPairing = viewModel::forgetPairing
                                 )

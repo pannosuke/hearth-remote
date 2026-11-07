@@ -7,8 +7,8 @@
             <certificates src="user" />
         </trust-anchors>
     </base-config>
-    <!-- Allow self-signed certs for Android TV Remote protocol -->
-    <domain-config cleartextTrafficPermitted="false">
+    <!-- Hearth overlay config is plain HTTP on port 8765 of the TV. The Android TV remote still uses its own TLS socket. -->
+    <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="false">192.168.10.105</domain>
         <trust-anchors>
             <certificates src="user" />

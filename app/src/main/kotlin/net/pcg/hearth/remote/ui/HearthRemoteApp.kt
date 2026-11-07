@@ -38,7 +38,8 @@ fun HearthRemoteApp() {
     val highlights = remember {
         SportsnetGuide(
             directory = File(context.filesDir, "youtube"),
-            fetch = HttpGuideFetch(SportsnetFeed.FEED_URL)
+            channel = HttpGuideFetch(SportsnetFeed.CHANNEL_FEED_URL),
+            playlist = HttpGuideFetch(SportsnetFeed.PLAYLIST_FEED_URL)
         )
     }
     val jellyfin = remember {

@@ -14,14 +14,17 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * Caches the Sportsnet playlist feed and refreshes it every few minutes.
- * A 304 leaves the cache in place. A failed fetch keeps the last good list.
- * The 36-hour window is applied when the screen reads [visible], so a cached
+ * Caches Sportsnet highlight feeds and refreshes them every few minutes.
+ * The channel feed is required. The playlist feed is merged when it returns
+ * a body and ignored when it fails. A failure of every source keeps the last
+ * good list, or marks the guide unavailable when there is nothing to show.
+ * The 48-hour window is applied when the screen reads [visible], so a cached
  * highlight drops off without another download.
  */
 internal class SportsnetGuide(
     private val directory: File,
-    private val fetch: GuideFetch,
+    private val channel: GuideFetch,
+    private val playlist: GuideFetch,
     private val refreshIntervalMs: Long = REFRESH_INTERVAL_MS
 ) {
     private val _state = MutableStateFlow(HighlightState())
@@ -29,9 +32,12 @@ internal class SportsnetGuide(
 
     private var etag: String? = null
     private var job: Job? = null
+    private var owner: CoroutineScope? = null
+    private val gate = Any()
 
     fun start(scope: CoroutineScope) {
         if (job?.isActive == true) return
+        owner = scope
         job = scope.launch {
             withContext(Dispatchers.IO) { restore() }
             while (isActive) {
@@ -44,6 +50,15 @@ internal class SportsnetGuide(
     fun stop() {
         job?.cancel()
         job = null
+    }
+
+    /** Ask both feeds again. A total failure with nothing cached stays unavailable. */
+    fun retry() {
+        val scope = owner ?: return
+        if (_state.value.videos.isEmpty()) {
+            _state.value = _state.value.copy(status = GuideStatus.Loading)
+        }
+        scope.launch(Dispatchers.IO) { refreshOnce() }
     }
 
     fun visible(nowMs: Long): List<HighlightVideo> = SportsnetFeed.select(_state.value.videos, nowMs)
@@ -76,32 +91,34 @@ internal class SportsnetGuide(
     }
 
     internal fun refreshOnce() {
-        try {
-            val download = fetch.fetch(etag)
-            if (download == null) {
-                markUnchanged()
+        synchronized(gate) {
+            val channelVideos = readSource(channel)
+            val playlistVideos = readSource(playlist)
+            if (channelVideos == null && playlistVideos == null) {
+                markFailure()
                 return
             }
-            download.use { body ->
-                val parsed = SportsnetFeed.parse(body.stream)
-                etag = body.etag
-                writeCache(body.etag, parsed)
-                _state.value = HighlightState(parsed, GuideStatus.Ready)
-            }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (_: Exception) {
-            markFailure()
+            val merged = SportsnetFeed.merge(channelVideos.orEmpty(), playlistVideos.orEmpty())
+            etag = null
+            writeCache(null, merged)
+            _state.value = HighlightState(merged, GuideStatus.Ready)
         }
     }
 
-    private fun markUnchanged() {
-        val status = if (_state.value.videos.isEmpty() && _state.value.status == GuideStatus.Loading) {
-            GuideStatus.Unavailable
-        } else {
-            GuideStatus.Ready
+    /**
+     * A body is a successful source, including a feed with no matching titles.
+     * Non-200 and network errors throw from [GuideFetch] and count as a miss.
+     * A miss is null so an empty successful feed is not confused with a failure.
+     */
+    private fun readSource(source: GuideFetch): List<HighlightVideo>? {
+        return try {
+            val download = source.fetch(null) ?: return null
+            download.use { body -> SportsnetFeed.parse(body.stream) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
         }
-        _state.value = _state.value.copy(status = status)
     }
 
     private fun markFailure() {

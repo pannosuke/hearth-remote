@@ -10,7 +10,7 @@ import javax.xml.XMLConstants
 import javax.xml.parsers.SAXParserFactory
 
 /**
- * One Sportsnet NHL game-highlight video from the public playlist Atom feed.
+ * One Sportsnet NHL game-highlight video from a public YouTube Atom feed.
  * [watchUrl] is the https link the TV's YouTube app already accepts.
  */
 internal data class HighlightVideo(
@@ -22,17 +22,22 @@ internal data class HighlightVideo(
 }
 
 /**
- * Sportsnet's public "2025-26 NHL Highlights" playlist.
- * The Atom feed needs no API key. It lists the newest 15 entries, including
+ * Sportsnet game highlights from the public channel Atom feed.
+ * The channel feed is the primary source. The old highlights playlist is
+ * merged in when it still returns 200, and ignored when it does not.
+ * Neither feed needs an API key. Each lists the newest 15 entries, including
  * Shorts. Only ordinary watch URLs whose titles are game highlights are kept.
- * Clocks shown to Eric are Asia/Tokyo. The window is the last 36 hours, so a
- * late game in the east is still listed the next morning in Osaka.
+ * Clocks shown to Eric are Asia/Tokyo. The window is the last 48 hours, so a
+ * late game in the east is still listed the next evening in Osaka.
  */
 internal object SportsnetFeed {
+    const val CHANNEL_ID = "UCVhibwHk4WKw4leUt6JfRLg"
+    const val CHANNEL_FEED_URL =
+        "https://www.youtube.com/feeds/videos.xml?channel_id=$CHANNEL_ID"
     const val PLAYLIST_ID = "PLo12SYwt93SQP81ntu8rz9QcAHTNQaFI3"
-    const val FEED_URL =
+    const val PLAYLIST_FEED_URL =
         "https://www.youtube.com/feeds/videos.xml?playlist_id=$PLAYLIST_ID"
-    const val WINDOW_MS = 36L * 60L * 60L * 1000L
+    const val WINDOW_MS = 48L * 60L * 60L * 1000L
 
     private val tokyo: ZoneId = ZoneId.of("Asia/Tokyo")
     private val clock: DateTimeFormatter = DateTimeFormatter.ofPattern("M/d HH:mm").withZone(tokyo)
@@ -136,6 +141,24 @@ internal object SportsnetFeed {
     }
 
     fun isGameHighlight(title: String): Boolean = gameHighlight.containsMatchIn(title.trim())
+
+    /**
+     * Channel entries win when the same video id is also on the playlist.
+     * Order is otherwise left as given; [select] sorts by publish time.
+     */
+    fun merge(primary: List<HighlightVideo>, extra: List<HighlightVideo>): List<HighlightVideo> {
+        if (extra.isEmpty()) return primary
+        if (primary.isEmpty()) return extra
+        val seen = HashSet<String>(primary.size + extra.size)
+        val merged = ArrayList<HighlightVideo>(primary.size + extra.size)
+        for (video in primary) {
+            if (seen.add(video.videoId)) merged.add(video)
+        }
+        for (video in extra) {
+            if (seen.add(video.videoId)) merged.add(video)
+        }
+        return merged
+    }
 
     fun select(videos: List<HighlightVideo>, nowMs: Long): List<HighlightVideo> {
         val start = nowMs - WINDOW_MS

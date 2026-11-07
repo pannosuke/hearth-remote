@@ -116,15 +116,24 @@ internal fun YouTubeScreen(
         Spacer(Modifier.height(12.dp))
 
         if (videos.isEmpty()) {
-            Text(
-                text = emptyMessage(feed.status),
+            Column(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
                     .padding(vertical = 24.dp),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = emptyMessage(feed.status),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (feed.status == GuideStatus.Unavailable) {
+                    FilledTonalButton(onClick = { tap { highlights.retry() } }) {
+                        Text(stringResource(R.string.youtube_retry))
+                    }
+                }
+            }
         } else {
             LazyColumn(
                 modifier = Modifier.weight(1f),

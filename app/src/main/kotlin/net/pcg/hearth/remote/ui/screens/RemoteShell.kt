@@ -40,6 +40,7 @@ import net.pcg.hearth.remote.protocol.GuideStatus
 import net.pcg.hearth.remote.protocol.NowAndNext
 import net.pcg.hearth.remote.protocol.OsakaChannels
 import net.pcg.hearth.remote.protocol.OsakaGuide
+import net.pcg.hearth.remote.protocol.OverlayController
 import net.pcg.hearth.remote.protocol.SharpIpCommands
 import net.pcg.hearth.remote.protocol.SportsnetGuide
 import net.pcg.hearth.remote.protocol.TerrestrialChannel
@@ -52,6 +53,7 @@ internal fun RemoteShell(
     guide: OsakaGuide,
     highlights: SportsnetGuide,
     jellyfin: JellyfinRemote,
+    overlays: OverlayController,
     onOpenSettings: () -> Unit
 ) {
     val packageName by tvConnection.currentAppPackage.collectAsState()
@@ -68,7 +70,7 @@ internal fun RemoteShell(
     }
 
     when {
-        terrestrial -> TerrestrialScreen(tvConnection, guide)
+        terrestrial -> TerrestrialScreen(tvConnection, guide, overlays)
         Foreground.isJellyfin(packageName) -> JellyfinScreen(tvConnection, jellyfin, onOpenSettings)
         Foreground.isYouTube(packageName) -> YouTubeScreen(tvConnection, highlights)
         else -> GenericRemoteScreen(tvConnection, packageName)
@@ -76,7 +78,11 @@ internal fun RemoteShell(
 }
 
 @Composable
-private fun TerrestrialScreen(tvConnection: TvConnection, guide: OsakaGuide) {
+private fun TerrestrialScreen(
+    tvConnection: TvConnection,
+    guide: OsakaGuide,
+    overlays: OverlayController
+) {
     val tuner by tvConnection.tunerStatus.collectAsState()
     val guideState by guide.state.collectAsState()
     val subtitleRunning by tvConnection.subtitleMacroRunning.collectAsState()
@@ -94,23 +100,31 @@ private fun TerrestrialScreen(tvConnection: TvConnection, guide: OsakaGuide) {
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text(
-            text = stringResource(R.string.live_tv_title),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Text(
-            text = station?.let { channelName(it) } ?: code ?: stringResource(R.string.channel_unknown),
-            style = MaterialTheme.typography.headlineLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        if (code != null) {
-            Text(
-                text = code,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.live_tv_title),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = station?.let { channelName(it) } ?: code ?: stringResource(R.string.channel_unknown),
+                    style = MaterialTheme.typography.headlineLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (code != null) {
+                    Text(
+                        text = code,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            TemperaturePillToggle(overlays)
         }
         if (currentButton != null) {
             ProgrammeBlock(

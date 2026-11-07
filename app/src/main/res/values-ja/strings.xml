@@ -66,6 +66,13 @@
     <string name="toast_subtitles_on">字幕オン…</string>
     <string name="toast_subtitles_off">字幕オフ…</string>
     <string name="live_tv_title">地上波</string>
+    <string name="overlay_title">オーバーレイ</string>
+    <string name="overlay_unavailable">オーバーレイ不可</string>
+    <string name="overlay_wxpill">気温</string>
+    <string name="overlay_quake">地震</string>
+    <string name="overlay_warn">警報</string>
+    <string name="overlay_sabres">Sabres</string>
+    <string name="overlay_weather">天気</string>
     <string name="jellyfin_title">Jellyfin</string>
     <string name="jellyfin_sign_in_needed">設定でJellyfinにサインイン</string>
     <string name="jellyfin_open_settings">設定を開く</string>

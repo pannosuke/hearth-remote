@@ -66,6 +66,13 @@
     <string name="toast_subtitles_on">Subtitles on…</string>
     <string name="toast_subtitles_off">Subtitles off…</string>
     <string name="live_tv_title">Terrestrial</string>
+    <string name="overlay_title">Overlays</string>
+    <string name="overlay_unavailable">Overlays unavailable</string>
+    <string name="overlay_wxpill">Temperature</string>
+    <string name="overlay_quake">Earthquake</string>
+    <string name="overlay_warn">Warnings</string>
+    <string name="overlay_sabres">Sabres</string>
+    <string name="overlay_weather">Weather</string>
     <string name="jellyfin_title">Jellyfin</string>
     <string name="jellyfin_sign_in_needed">Sign in to Jellyfin in Settings</string>
     <string name="jellyfin_open_settings">Open Settings</string>

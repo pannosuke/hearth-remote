@@ -50,9 +50,10 @@
     <string name="youtube_title">YouTube</string>
     <string name="youtube_profile_name">Eric</string>
     <string name="youtube_profile_hint">Plays on the account already open in YouTube on the TV.</string>
-    <string name="youtube_empty">No NHL game highlights in the last 36 hours.</string>
+    <string name="youtube_empty">No NHL game highlights in the last 48 hours.</string>
     <string name="youtube_loading">Checking Sportsnet…</string>
-    <string name="youtube_unavailable">Sportsnet did not answer. The list will try again shortly.</string>
+    <string name="youtube_unavailable">Couldn\'t load highlights</string>
+    <string name="youtube_retry">Retry</string>
     <string name="youtube_published">%1$s Japan time</string>
     <string name="btn_volume_up">Volume Up</string>
     <string name="btn_volume_down">Volume Down</string>

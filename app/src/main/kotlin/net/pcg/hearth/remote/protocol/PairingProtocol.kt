@@ -1,6 +1,8 @@
 package net.pcg.hearth.remote.protocol
 
+import android.content.Context
 import android.util.Log
+import net.pcg.hearth.remote.R
 import net.pcg.hearth.remote.proto.PoloProto.OuterMessage
 import java.io.InputStream
 import java.io.OutputStream
@@ -9,7 +11,8 @@ import java.security.interfaces.RSAPublicKey
 import javax.net.ssl.SSLSocket
 
 class PairingProtocol(
-    private val certificateManager: CertificateManager
+    private val certificateManager: CertificateManager,
+    private val context: Context
 ) {
     companion object {
         const val PAIRING_PORT = 6467
@@ -41,7 +44,7 @@ class PairingProtocol(
             
             PairingResult.NeedCode(socket)
         } catch (e: Exception) {
-            PairingResult.Error("Pairing failed: ${e.message}")
+            PairingResult.Error(context.getString(R.string.pairing_failed_detail, e.message.orEmpty()))
         }
     }
     
@@ -62,17 +65,17 @@ class PairingProtocol(
             
             secretResult
         } catch (e: Exception) {
-            PairingResult.Error("Pairing completion failed: ${e.message}")
+            PairingResult.Error(context.getString(R.string.pairing_completion_failed, e.message.orEmpty()))
         }
     }
     
     private fun receivePairingRequestAck(input: InputStream): PairingResult? {
         val outer = receiveMessage(input)
         if (outer.status != OuterMessage.Status.STATUS_OK) {
-            return PairingResult.Error("Server rejected pairing request: ${outer.status}")
+            return rejected(outer.status)
         }
         if (!outer.hasPairingRequestAck()) {
-            return PairingResult.Error("Unexpected pairing response: ${describe(outer)}")
+            return unexpected(outer)
         }
         return null
     }
@@ -80,10 +83,10 @@ class PairingProtocol(
     private fun receiveOptions(input: InputStream): PairingResult? {
         val outer = receiveMessage(input)
         if (outer.status != OuterMessage.Status.STATUS_OK) {
-            return PairingResult.Error("Server rejected options: ${outer.status}")
+            return rejected(outer.status)
         }
         if (!outer.hasOptions()) {
-            return PairingResult.Error("Unexpected options response: ${describe(outer)}")
+            return unexpected(outer)
         }
         return null
     }
@@ -91,10 +94,10 @@ class PairingProtocol(
     private fun receiveConfigurationAck(input: InputStream): PairingResult? {
         val outer = receiveMessage(input)
         if (outer.status != OuterMessage.Status.STATUS_OK) {
-            return PairingResult.Error("Server rejected configuration: ${outer.status}")
+            return rejected(outer.status)
         }
         if (!outer.hasConfigurationAck()) {
-            return PairingResult.Error("Unexpected configuration response: ${describe(outer)}")
+            return unexpected(outer)
         }
         return null
     }
@@ -102,18 +105,26 @@ class PairingProtocol(
     private fun receiveSecretAck(input: InputStream, serverCert: X509Certificate): PairingResult {
         val outer = receiveMessage(input)
         if (outer.status == OuterMessage.Status.STATUS_BAD_SECRET) {
-            return PairingResult.Error("Invalid pairing code")
+            return PairingResult.Error(context.getString(R.string.pairing_error))
         }
         if (outer.status != OuterMessage.Status.STATUS_OK) {
-            return PairingResult.Error("Server rejected secret: ${outer.status}")
+            return rejected(outer.status)
         }
         if (!outer.hasSecretAck()) {
-            return PairingResult.Error("Unexpected secret response: ${describe(outer)}")
+            return unexpected(outer)
         }
         
         return PairingResult.Success(serverCert)
     }
     
+    private fun rejected(status: OuterMessage.Status): PairingResult.Error {
+        return PairingResult.Error(context.getString(R.string.pairing_rejected, status.toString()))
+    }
+
+    private fun unexpected(outer: OuterMessage): PairingResult.Error {
+        return PairingResult.Error(context.getString(R.string.pairing_unexpected, describe(outer)))
+    }
+
     private fun computeSecret(serverCert: X509Certificate, code: String): ByteArray {
         val clientKey = certificateManager.getOrCreateClientCertificate().first.publicKey as RSAPublicKey
         val serverKey = serverCert.publicKey as RSAPublicKey

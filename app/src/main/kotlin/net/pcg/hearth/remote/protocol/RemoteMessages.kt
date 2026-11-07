@@ -172,10 +172,10 @@ internal object HearthLaunch {
         return Foreground.JELLYFIN_PACKAGE
     }
 
-    /** Shown when the TV rejects a hearth:// app link. Null for any other link. */
-    fun failure(sent: String?, errorValue: Boolean): String? {
+    /** The hearth:// link the TV rejected, or null when the link is not hearth://. */
+    fun rejectedLink(sent: String?): String? {
         if (sent == null || !sent.startsWith(SCHEME_PREFIX)) return null
-        return "Hearth rejected $sent (error value=$errorValue). The Hearth launcher on the TV needs a fix."
+        return sent
     }
 }
 

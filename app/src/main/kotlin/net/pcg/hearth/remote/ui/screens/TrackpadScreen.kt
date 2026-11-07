@@ -234,7 +234,7 @@ fun TrackpadScreen(
                     }
                 )
                 Text(
-                    text = "CH",
+                    text = stringResource(R.string.btn_channel_mark),
                     style = MaterialTheme.typography.labelSmall
                 )
                 RemoteButton(

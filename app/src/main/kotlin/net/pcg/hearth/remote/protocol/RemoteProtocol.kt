@@ -1,7 +1,9 @@
 package net.pcg.hearth.remote.protocol
 
+import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.*
+import net.pcg.hearth.remote.R
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import net.pcg.hearth.remote.proto.RemoteProto.*
@@ -13,7 +15,8 @@ import javax.net.ssl.SSLSocket
 import kotlin.coroutines.cancellation.CancellationException
 
 class RemoteProtocol(
-    private val certificateManager: CertificateManager
+    private val certificateManager: CertificateManager,
+    private val context: Context
 ) {
     companion object {
         const val REMOTE_PORT = 6466
@@ -343,8 +346,13 @@ class RemoteProtocol(
                 val detail = "app_link sent=${sent ?: "unknown"} response=error value=$value"
                 Log.w(TAG, detail)
                 record("sys", detail)
-                val failure = HearthLaunch.failure(sent, value)
-                if (failure != null) {
+                val rejected = HearthLaunch.rejectedLink(sent)
+                if (rejected != null) {
+                    val failure = context.getString(
+                        R.string.hearth_launch_rejected,
+                        rejected,
+                        value.toString()
+                    )
                     stickyError = failure
                     _lastError.value = failure
                     Log.w(TAG, failure)
@@ -352,7 +360,7 @@ class RemoteProtocol(
                 }
                 synchronized(sessionLock) { errorReconnect = true }
                 if (remoteErrorClosesSession(message)) {
-                    onSocketLost(id, "TV rejected a command: $value")
+                    onSocketLost(id, context.getString(R.string.remote_tv_rejected, value.toString()))
                 }
             }
             else -> {
@@ -420,7 +428,7 @@ class RemoteProtocol(
         if (sendNow) {
             val result = commandChannel.trySend(message)
             if (result.isFailure) {
-                reportError("Remote command was not sent")
+                reportError(context.getString(R.string.remote_command_not_sent))
             }
         } else {
             val host = activeHost

@@ -133,12 +133,8 @@ class RemoteAppLinkTest {
             .build()
         assertFalse(remoteErrorClosesSession(message))
         assertEquals(link, rejectedAppLink(message))
-        val failure = HearthLaunch.failure(rejectedAppLink(message), message.remoteError.value)
-        assertEquals(
-            "Hearth rejected $link (error value=true). The Hearth launcher on the TV needs a fix.",
-            failure
-        )
-        assertEquals(null, HearthLaunch.failure("https://www.youtube.com", true))
+        assertEquals(link, HearthLaunch.rejectedLink(rejectedAppLink(message)))
+        assertEquals(null, HearthLaunch.rejectedLink("https://www.youtube.com"))
         val text = describeRemoteMessage(message)
         assertTrue(text.contains("value=true"))
         assertTrue(text.contains("app_link $link"))

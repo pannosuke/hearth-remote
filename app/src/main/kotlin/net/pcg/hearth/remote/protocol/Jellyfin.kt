@@ -121,7 +121,8 @@ internal data class JellyfinUiState(
 internal interface JellyfinCredentialStore {
     fun read(): JellyfinLogin?
     fun write(login: JellyfinLogin)
-    fun clearLogin()
+    fun clearLogin(expired: Boolean = false)
+    fun signInAgain(): Boolean
     fun serverUrl(): String
     fun deviceId(): String
     fun selectedDeviceId(): String?
@@ -161,11 +162,28 @@ internal object JellyfinApi {
         return url.trimEnd('/')
     }
 
-    fun embyAuthorization(deviceId: String, version: String): String {
-        val safeDevice = deviceId.replace("\"", "")
-        val safeVersion = version.replace("\"", "").ifBlank { "0.2.3" }
-        return "MediaBrowser Client=\"Hearth Remote\", Device=\"Hearth Remote\", DeviceId=\"$safeDevice\", Version=\"$safeVersion\""
+    /**
+     * Jellyfin 12 rejects `X-Emby-Authorization` and `X-Emby-Token`.
+     * AuthenticateByName and other unauthenticated calls omit `Token`.
+     */
+    fun authorization(deviceId: String, version: String, token: String? = null): String {
+        val ver = version.ifBlank { "0.2.3" }
+        val header = StringBuilder()
+        header.append("MediaBrowser Client=\"Hearth Remote\", Device=\"Hearth Remote\", DeviceId=\"")
+        header.append(quote(deviceId))
+        header.append("\", Version=\"")
+        header.append(quote(ver))
+        header.append('"')
+        if (!token.isNullOrBlank()) {
+            header.append(", Token=\"")
+            header.append(quote(token))
+            header.append('"')
+        }
+        return header.toString()
     }
+
+    private fun quote(value: String): String =
+        value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\r", "").replace("\n", "")
 
     fun logPath(url: String): String {
         return try {

@@ -15,7 +15,7 @@ Settings has three choices: system default, English, and 日本語. The Android 
 | Screen | What it does |
 | --- | --- |
 | Setup | TV address, pairing code, connect |
-| 地デジ | Channel, programme, volume, presets 18/24/33, mute, subtitles on/off, temperature pill |
+| 地デジ | Channel, programme, volume, presets 18/22/33, mute, subtitles on/off, temperature pill |
 | YouTube | Profile chip, Sportsnet highlights, transport keys, captions, volume |
 | Jellyfin | Sign-in prompt, now playing, seek, subtitles, up next, volume |
 | Remote | D-pad, OK, back, home, play/pause, volume, when no special screen is showing |
@@ -30,7 +30,7 @@ Power sits on every paired screen. The version number sits in the corner.
 
 - Pairing and the saved TV address
 - 地デジ controls, Osaka channel cards, and the guide
-- Volume down on the left, volume up on the right, mute, and presets 18, 24, and 33
+- Volume down on the left, volume up on the right, mute, and presets 18, 22, and 33
 - Subtitles on and subtitles off
 - YouTube highlights and playback keys
 - Jellyfin playback, subtitles, and up next

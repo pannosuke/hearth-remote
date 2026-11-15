@@ -17,9 +17,9 @@ class SharpIpControlTest {
     fun `commands are 8 characters plus cr`() {
         assertEquals("VOLM20  \r", ascii(SharpIpCommands.encode("VOLM", "20")))
         assertEquals("VOLM18  \r", ascii(SharpIpCommands.encode("VOLM", "18")))
-        assertEquals("VOLM24  \r", ascii(SharpIpCommands.encode("VOLM", "24")))
+        assertEquals("VOLM22  \r", ascii(SharpIpCommands.encode("VOLM", "22")))
         assertEquals("VOLM33  \r", ascii(SharpIpCommands.encode("VOLM", "33")))
-        assertEquals(listOf(18, 24, 33), SharpIpCommands.PRESET_LEVELS.toList())
+        assertEquals(listOf(18, 22, 33), SharpIpCommands.PRESET_LEVELS.toList())
         assertEquals("MUTE0   \r", ascii(SharpIpCommands.encode("MUTE", "0")))
         assertEquals("MUTE2   \r", ascii(SharpIpCommands.encode("MUTE", "2")))
         assertEquals("IRCO02BB\r", ascii(SharpIpCommands.encode("IRCO", SharpIpCommands.HOME)))

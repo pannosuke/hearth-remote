@@ -52,7 +52,7 @@ internal object SharpIpCommands {
     const val CHANNEL_DOWN = "0112"
 
     /** Living-room levels set with one VOLM command, not a run of up/down keys. */
-    val PRESET_LEVELS = intArrayOf(18, 24, 33)
+    val PRESET_LEVELS = intArrayOf(18, 22, 33)
 
     fun encode(command: String, param: String): ByteArray {
         require(command.length == 4) { "Sharp command must be 4 characters" }

@@ -22,11 +22,19 @@ class JellyfinTest {
             """{"Username":"Queen Bee","Pw":"secret"}""",
             JellyfinApi.authBody("Queen Bee", "secret")
         )
-        val header = JellyfinApi.embyAuthorization("phone", "0.2.3")
+        val header = JellyfinApi.authorization("phone", "0.2.3")
         assertEquals(
             "MediaBrowser Client=\"Hearth Remote\", Device=\"Hearth Remote\", DeviceId=\"phone\", Version=\"0.2.3\"",
             header
         )
+        assertFalse(header.contains("Token="))
+        assertEquals(
+            "$header, Token=\"token-1\"",
+            JellyfinApi.authorization("phone", "0.2.3", "token-1")
+        )
+        assertFalse(JellyfinApi.authorization("phone", "0.2.3", "  ").contains("Token="))
+        assertTrue(JellyfinApi.authorization("a\"b\\c\r\n", "1\"2").contains("DeviceId=\"a\\\"b\\\\c\""))
+        assertTrue(JellyfinApi.authorization("a\"b\\c", "1\"2").contains("Version=\"1\\\"2\""))
         assertFalse(JellyfinApi.redact("""{"Pw":"s3cret-pw","AccessToken":"token-1"}""", "s3cret-pw").contains("s3cret-pw"))
         assertFalse(JellyfinApi.redact("""{"AccessToken":"token-1"}""").contains("token-1"))
         assertEquals("/Users/AuthenticateByName", JellyfinApi.logPath("http://192.168.10.114:8096/Users/AuthenticateByName"))
@@ -130,19 +138,22 @@ class JellyfinTest {
         assertEquals("http://192.168.10.114:8096/Users/AuthenticateByName", authCall.url)
         assertTrue(authCall.body!!.contains("\"Username\":\"Queen Bee\""))
         assertTrue(authCall.body!!.contains(PASSWORD))
-        val authorization = authCall.headers["X-Emby-Authorization"]!!
+        val authorization = authCall.headers["Authorization"]!!
         assertEquals(
             "MediaBrowser Client=\"Hearth Remote\", Device=\"Hearth Remote\", DeviceId=\"phone\", Version=\"0.2.3\"",
             authorization
         )
-        assertFalse(authCall.headers.containsKey("Authorization"))
+        assertFalse(authCall.headers.containsKey("X-Emby-Authorization"))
+        assertFalse(authCall.headers.containsKey("X-Emby-Token"))
         assertFalse(authorization.contains("Token="))
         assertFalse(authorization.contains(PASSWORD))
+        val withToken = "$authorization, Token=\"token-1\""
         assertTrue(transport.calls.drop(1).all { call ->
             call.body?.contains(PASSWORD) != true &&
-                call.headers["X-Emby-Token"] == "token-1" &&
-                call.headers["X-Emby-Authorization"] == authorization &&
-                call.headers["Authorization"] == null
+                call.headers["Authorization"] == withToken &&
+                !call.headers.containsKey("X-Emby-Token") &&
+                !call.headers.containsKey("X-Emby-Authorization") &&
+                !call.url.contains("api_key", ignoreCase = true)
         })
         assertFalse(transport.calls.any { it.url.contains(PASSWORD) })
         assertTrue(logs.any { it.contains("POST /Users/AuthenticateByName") })
@@ -169,6 +180,10 @@ class JellyfinTest {
         assertEquals(JellyfinProblem.Unauthorized, remote.state.value.problem)
         assertEquals("http://192.168.10.114:8096", store.serverUrl())
         assertEquals("HTTP 401", remote.state.value.detail)
+        assertTrue(store.signInAgain())
+        val restarted = JellyfinRemote(store, ScriptedTransport(), version = "0.3.1")
+        assertFalse(restarted.state.value.signedIn)
+        assertEquals(JellyfinProblem.Unauthorized, restarted.state.value.problem)
     }
 
     @Test
@@ -213,11 +228,15 @@ class JellyfinTest {
         override fun write(login: JellyfinLogin) {
             this.login = login
             url = login.serverUrl
+            expired = false
         }
-        override fun clearLogin() {
+        private var expired = false
+        override fun clearLogin(expired: Boolean) {
             login = null
             selected = null
+            this.expired = expired
         }
+        override fun signInAgain(): Boolean = expired
         override fun serverUrl(): String = url
         override fun deviceId(): String = "phone"
         override fun selectedDeviceId(): String? = selected

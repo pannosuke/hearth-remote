@@ -29,17 +29,21 @@ internal class AndroidJellyfinStore(context: Context) : JellyfinCredentialStore 
             .putString(KEY_USER_ID, login.userId)
             .putString(KEY_USER_NAME, login.userName)
             .putString(KEY_TOKEN, login.accessToken)
+            .remove(KEY_SIGN_IN_AGAIN)
             .apply()
     }
 
-    override fun clearLogin() {
-        prefs.edit()
+    override fun clearLogin(expired: Boolean) {
+        val editor = prefs.edit()
             .remove(KEY_USER_ID)
             .remove(KEY_USER_NAME)
             .remove(KEY_TOKEN)
             .remove(KEY_SELECTED)
-            .apply()
+        if (expired) editor.putBoolean(KEY_SIGN_IN_AGAIN, true) else editor.remove(KEY_SIGN_IN_AGAIN)
+        editor.apply()
     }
+
+    override fun signInAgain(): Boolean = prefs.getBoolean(KEY_SIGN_IN_AGAIN, false)
 
     override fun serverUrl(): String = prefs.getString(KEY_URL, null).orEmpty()
 
@@ -78,5 +82,6 @@ internal class AndroidJellyfinStore(context: Context) : JellyfinCredentialStore 
         const val KEY_TOKEN = "access_token"
         const val KEY_DEVICE = "device_id"
         const val KEY_SELECTED = "selected_device_id"
+        const val KEY_SIGN_IN_AGAIN = "sign_in_again"
     }
 }

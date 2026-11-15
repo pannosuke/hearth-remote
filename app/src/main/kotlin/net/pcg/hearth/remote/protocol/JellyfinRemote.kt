@@ -85,7 +85,7 @@ internal class JellyfinRemote(
         withContext(Dispatchers.IO) {
             mutex.withLock {
                 val url = store.serverUrl().ifBlank { _state.value.serverUrl }
-                store.clearLogin()
+                store.clearLogin(expired = false)
                 _state.value = JellyfinUiState(serverUrl = url)
             }
         }
@@ -181,7 +181,12 @@ internal class JellyfinRemote(
 
     private fun initialState(): JellyfinUiState {
         val saved = store.read()
-        if (saved == null) return JellyfinUiState(serverUrl = store.serverUrl())
+        if (saved == null) {
+            return JellyfinUiState(
+                serverUrl = store.serverUrl(),
+                problem = if (store.signInAgain()) JellyfinProblem.Unauthorized else JellyfinProblem.None
+            )
+        }
         return JellyfinUiState(
             serverUrl = saved.serverUrl,
             signedIn = true,
@@ -238,7 +243,7 @@ internal class JellyfinRemote(
     private fun noteFailure(login: JellyfinLogin, code: Int) {
         val detail = "HTTP $code"
         if (code == 401) {
-            store.clearLogin()
+            store.clearLogin(expired = true)
             _state.value = JellyfinUiState(
                 serverUrl = login.serverUrl,
                 problem = JellyfinProblem.Unauthorized,
@@ -297,9 +302,8 @@ internal class JellyfinRemote(
         val headers = linkedMapOf(
             "Accept" to "application/json",
             "User-Agent" to "HearthRemote",
-            "X-Emby-Authorization" to JellyfinApi.embyAuthorization(store.deviceId(), versionName)
+            "Authorization" to JellyfinApi.authorization(store.deviceId(), versionName, token)
         )
-        if (!token.isNullOrBlank()) headers["X-Emby-Token"] = token
         if (json) headers["Content-Type"] = "application/json"
         return headers
     }

@@ -15,8 +15,8 @@ android {
         applicationId = "net.pcg.hearth.remote"
         minSdk = 34
         targetSdk = 35
-        versionCode = 301
-        versionName = "0.3.1"
+        versionCode = 302
+        versionName = "0.3.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         

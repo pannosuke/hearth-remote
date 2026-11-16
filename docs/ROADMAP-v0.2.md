@@ -64,6 +64,7 @@ The phone switches remotes from `RemoteImeKeyInject` (`remote_ime_key_inject`, f
 - **Sportsnet highlights.** The public channel Atom feed for `UCVhibwHk4WKw4leUt6JfRLg`. The playlist feed is merged when it returns 200. No API key. Playback is still an https watch link.
 - **Language.** v0.3.0. Settings offers system default, English, and 日本語. `AppCompatDelegate.setApplicationLocales` applies it immediately and keeps it. The words live in `shared/i18n/en.json` and `ja.json`, which match the Android string resources. See `shared/PARITY.md`.
 - **Hearth overlays.** Hearth 4.14 serves `http://<tv-host>:8765/overlay` with no auth. The phone reads `wxpill`, `quake`, `warn`, `sabres`, and `weather` (`on`/`off`) and sets one with `GET /overlay?key=on|off`. The terrestrial screen has the temperature pill. Settings has all five. A miss leaves the controls disabled.
+- **Explain news.** v0.3.2. The terrestrial screen sends `POST http://<tv-host>:8765/api/explain` and tries `GET` only when POST returns 405. Hearth 4.24 toggles an English summary for 60 seconds. A 404 asks to update Hearth on the TV. The phone does not time the overlay.
 - **adb over the network.** Last resort for TV settings the protocol does not have: system captions if `KEYCODE_CAPTIONS` does nothing, and AquoMotion if a command even exists. Requires wireless debugging on the TV and is easy to break. Do not use it for Jellyfin subtitles or YouTube playback.
 
 ## Recommended build order

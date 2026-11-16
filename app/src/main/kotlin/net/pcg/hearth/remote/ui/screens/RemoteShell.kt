@@ -16,6 +16,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.VolumeDown
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,6 +34,8 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import net.pcg.hearth.remote.R
+import net.pcg.hearth.remote.protocol.ExplainController
+import net.pcg.hearth.remote.protocol.ExplainPhase
 import net.pcg.hearth.remote.protocol.Foreground
 import net.pcg.hearth.remote.protocol.GuideState
 import net.pcg.hearth.remote.protocol.JellyfinRemote
@@ -54,6 +57,7 @@ internal fun RemoteShell(
     highlights: SportsnetGuide,
     jellyfin: JellyfinRemote,
     overlays: OverlayController,
+    explain: ExplainController,
     onOpenSettings: () -> Unit
 ) {
     val packageName by tvConnection.currentAppPackage.collectAsState()
@@ -70,7 +74,7 @@ internal fun RemoteShell(
     }
 
     when {
-        terrestrial -> TerrestrialScreen(tvConnection, guide, overlays)
+        terrestrial -> TerrestrialScreen(tvConnection, guide, overlays, explain)
         Foreground.isJellyfin(packageName) -> JellyfinScreen(tvConnection, jellyfin, onOpenSettings)
         Foreground.isYouTube(packageName) -> YouTubeScreen(tvConnection, highlights)
         else -> GenericRemoteScreen(tvConnection, packageName)
@@ -81,7 +85,8 @@ internal fun RemoteShell(
 private fun TerrestrialScreen(
     tvConnection: TvConnection,
     guide: OsakaGuide,
-    overlays: OverlayController
+    overlays: OverlayController,
+    explain: ExplainController
 ) {
     val tuner by tvConnection.tunerStatus.collectAsState()
     val guideState by guide.state.collectAsState()
@@ -136,7 +141,11 @@ private fun TerrestrialScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
+
+        ExplainNewsButton(explain)
+
+        Spacer(modifier = Modifier.height(12.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -517,6 +526,43 @@ private fun GenericRemoteScreen(tvConnection: TvConnection, packageName: String?
                 Icon(Icons.AutoMirrored.Filled.VolumeUp, stringResource(R.string.btn_volume_up), Modifier.size(36.dp))
             }
         }
+    }
+}
+
+@Composable
+private fun ExplainNewsButton(explain: ExplainController) {
+    val phase by explain.state.collectAsState()
+    val view = LocalView.current
+    Button(
+        onClick = {
+            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            explain.press()
+        },
+        enabled = phase != ExplainPhase.Requesting,
+        modifier = Modifier.fillMaxWidth().height(56.dp)
+    ) {
+        Icon(Icons.AutoMirrored.Filled.Article, contentDescription = null)
+        Spacer(Modifier.width(8.dp))
+        Text(stringResource(R.string.btn_explain_news))
+    }
+    val message = when (phase) {
+        ExplainPhase.Idle -> null
+        ExplainPhase.Requesting -> stringResource(R.string.explain_requesting)
+        ExplainPhase.Sent -> stringResource(R.string.explain_sent)
+        ExplainPhase.NeedsUpdate -> stringResource(R.string.explain_update_hearth)
+        ExplainPhase.Failed -> stringResource(R.string.explain_error)
+    }
+    if (message != null) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (phase == ExplainPhase.NeedsUpdate || phase == ExplainPhase.Failed) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            modifier = Modifier.padding(top = 4.dp)
+        )
     }
 }
 

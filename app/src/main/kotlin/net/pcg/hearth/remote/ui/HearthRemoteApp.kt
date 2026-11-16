@@ -15,6 +15,8 @@ import kotlinx.coroutines.cancel
 import net.pcg.hearth.remote.BuildConfig
 import net.pcg.hearth.remote.data.AndroidJellyfinStore
 import net.pcg.hearth.remote.data.SettingsRepository
+import net.pcg.hearth.remote.protocol.ExplainController
+import net.pcg.hearth.remote.protocol.HearthExplain
 import net.pcg.hearth.remote.protocol.HearthOverlay
 import net.pcg.hearth.remote.protocol.HttpGuideFetch
 import net.pcg.hearth.remote.protocol.HttpJellyfinTransport
@@ -45,11 +47,13 @@ fun HearthRemoteApp() {
             playlist = HttpGuideFetch(SportsnetFeed.PLAYLIST_FEED_URL)
         )
     }
+    val settings = remember { SettingsRepository(context) }
+    val tvHost = { settings.getTvHost() ?: settings.getDefaultTvHost() }
     val overlays = remember {
-        val settings = SettingsRepository(context)
-        OverlayController(
-            HearthOverlay(hostProvider = { settings.getTvHost() ?: settings.getDefaultTvHost() })
-        )
+        OverlayController(HearthOverlay(hostProvider = tvHost))
+    }
+    val explain = remember {
+        ExplainController(HearthExplain(hostProvider = tvHost))
     }
     val jellyfin = remember {
         JellyfinRemote(
@@ -59,7 +63,7 @@ fun HearthRemoteApp() {
             log = { line -> tvConnection.note(line) }
         )
     }
-    DisposableEffect(guide, highlights, overlays) {
+    DisposableEffect(guide, highlights, overlays, explain) {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
         guide.start(scope)
         highlights.start(scope)
@@ -67,6 +71,7 @@ fun HearthRemoteApp() {
             guide.stop()
             highlights.stop()
             overlays.close()
+            explain.close()
             scope.cancel()
         }
     }
@@ -127,6 +132,7 @@ fun HearthRemoteApp() {
                                     highlights = highlights,
                                     jellyfin = jellyfin,
                                     overlays = overlays,
+                                    explain = explain,
                                     onOpenSettings = { viewModel.navigateTo(Screen.Settings) }
                                 )
                                 Screen.Trackpad -> TrackpadScreen(tvConnection = tvConnection)

@@ -76,6 +76,11 @@
     <string name="toast_subtitles_on">字幕オン…</string>
     <string name="toast_subtitles_off">字幕オフ…</string>
     <string name="live_tv_title">地デジ</string>
+    <string name="btn_explain_news">ニュース解説</string>
+    <string name="explain_requesting">送信しています…</string>
+    <string name="explain_sent">送りました</string>
+    <string name="explain_error">送れませんでした</string>
+    <string name="explain_update_hearth">テレビのHearthを更新してください</string>
     <string name="overlay_title">オーバーレイ</string>
     <string name="overlay_unavailable">オーバーレイは使えません</string>
     <string name="overlay_wxpill">気温</string>

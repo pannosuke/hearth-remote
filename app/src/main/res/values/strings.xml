@@ -77,6 +77,10 @@
     <string name="toast_subtitles_off">Subtitles off…</string>
     <string name="live_tv_title">Terrestrial</string>
     <string name="btn_explain_news">Explain news</string>
+    <string name="btn_snap_screen">📷 Snap screen</string>
+    <string name="snap_shutter">Take photo</string>
+    <string name="snap_camera_needed">Camera permission is needed</string>
+    <string name="snap_camera_failed">Couldn\'t take a photo</string>
     <string name="explain_requesting">Requesting…</string>
     <string name="explain_sent">Sent</string>
     <string name="explain_error">Couldn\'t reach Hearth</string>

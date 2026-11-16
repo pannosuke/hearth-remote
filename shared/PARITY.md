@@ -15,7 +15,7 @@ Settings has three choices: system default, English, and 日本語. The Android 
 | Screen | What it does |
 | --- | --- |
 | Setup | TV address, pairing code, connect |
-| 地デジ | Channel, programme, Explain news, volume, presets 18/22/33, mute, subtitles on/off, temperature pill |
+| 地デジ | Channel, programme, Explain news, Snap screen, volume, presets 18/22/33, mute, subtitles on/off, temperature pill |
 | YouTube | Profile chip, Sportsnet highlights, transport keys, captions, volume |
 | Jellyfin | Sign-in prompt, now playing, seek, subtitles, up next, volume |
 | Remote | D-pad, OK, back, home, play/pause, volume, when no special screen is showing |
@@ -32,6 +32,7 @@ Power sits on every paired screen. The version number sits in the corner.
 - 地デジ controls, Osaka channel cards, and the guide
 - Volume down on the left, volume up on the right, mute, and presets 18, 22, and 33
 - Explain news on 地デジ. `POST http://<tv>:8765/api/explain`, and `GET` the same path if POST returns 405. The TV toggles the English summary, which stays up for 60 seconds. The phone shows requesting, sent, or an error. A 404 says to update Hearth on the TV.
+- Snap screen, next to Explain news. The rear camera takes one photo of the TV. The photo is not saved on the phone: no gallery, no MediaStore, no file left behind. Upload is `POST http://<tv>:8765/api/explain/photo` as multipart field `photo`, or as a raw `image/jpeg` if the set rejects the form. The picture is scaled so the long edge is at most 1600 pixels. The TV shows the English summary. A 404 says to update Hearth on the TV.
 - Subtitles on and subtitles off
 - YouTube highlights and playback keys
 - Jellyfin playback, subtitles, and up next

@@ -52,9 +52,9 @@ fun HearthRemoteApp() {
     val overlays = remember {
         OverlayController(HearthOverlay(hostProvider = tvHost))
     }
-    val explain = remember {
-        ExplainController(HearthExplain(hostProvider = tvHost))
-    }
+    val explainClient = remember { HearthExplain(hostProvider = tvHost) }
+    val explain = remember { ExplainController(explainClient) }
+    val snap = remember { ExplainController(explainClient) }
     val jellyfin = remember {
         JellyfinRemote(
             store = AndroidJellyfinStore(context),
@@ -63,7 +63,7 @@ fun HearthRemoteApp() {
             log = { line -> tvConnection.note(line) }
         )
     }
-    DisposableEffect(guide, highlights, overlays, explain) {
+    DisposableEffect(guide, highlights, overlays, explain, snap) {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
         guide.start(scope)
         highlights.start(scope)
@@ -72,6 +72,7 @@ fun HearthRemoteApp() {
             highlights.stop()
             overlays.close()
             explain.close()
+            snap.close()
             scope.cancel()
         }
     }
@@ -133,6 +134,7 @@ fun HearthRemoteApp() {
                                     jellyfin = jellyfin,
                                     overlays = overlays,
                                     explain = explain,
+                                    snap = snap,
                                     onOpenSettings = { viewModel.navigateTo(Screen.Settings) }
                                 )
                                 Screen.Trackpad -> TrackpadScreen(tvConnection = tvConnection)

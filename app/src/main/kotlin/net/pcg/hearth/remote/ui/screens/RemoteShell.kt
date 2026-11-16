@@ -58,6 +58,7 @@ internal fun RemoteShell(
     jellyfin: JellyfinRemote,
     overlays: OverlayController,
     explain: ExplainController,
+    snap: ExplainController,
     onOpenSettings: () -> Unit
 ) {
     val packageName by tvConnection.currentAppPackage.collectAsState()
@@ -74,7 +75,7 @@ internal fun RemoteShell(
     }
 
     when {
-        terrestrial -> TerrestrialScreen(tvConnection, guide, overlays, explain)
+        terrestrial -> TerrestrialScreen(tvConnection, guide, overlays, explain, snap)
         Foreground.isJellyfin(packageName) -> JellyfinScreen(tvConnection, jellyfin, onOpenSettings)
         Foreground.isYouTube(packageName) -> YouTubeScreen(tvConnection, highlights)
         else -> GenericRemoteScreen(tvConnection, packageName)
@@ -86,7 +87,8 @@ private fun TerrestrialScreen(
     tvConnection: TvConnection,
     guide: OsakaGuide,
     overlays: OverlayController,
-    explain: ExplainController
+    explain: ExplainController,
+    snap: ExplainController
 ) {
     val tuner by tvConnection.tunerStatus.collectAsState()
     val guideState by guide.state.collectAsState()
@@ -143,7 +145,14 @@ private fun TerrestrialScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        ExplainNewsButton(explain)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            ExplainNewsButton(explain, Modifier.weight(1f))
+            SnapScreenButton(snap, Modifier.weight(1f))
+        }
 
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -530,39 +539,42 @@ private fun GenericRemoteScreen(tvConnection: TvConnection, packageName: String?
 }
 
 @Composable
-private fun ExplainNewsButton(explain: ExplainController) {
+private fun ExplainNewsButton(explain: ExplainController, modifier: Modifier = Modifier) {
     val phase by explain.state.collectAsState()
     val view = LocalView.current
-    Button(
-        onClick = {
-            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-            explain.press()
-        },
-        enabled = phase != ExplainPhase.Requesting,
-        modifier = Modifier.fillMaxWidth().height(56.dp)
-    ) {
-        Icon(Icons.AutoMirrored.Filled.Article, contentDescription = null)
-        Spacer(Modifier.width(8.dp))
-        Text(stringResource(R.string.btn_explain_news))
-    }
-    val message = when (phase) {
-        ExplainPhase.Idle -> null
-        ExplainPhase.Requesting -> stringResource(R.string.explain_requesting)
-        ExplainPhase.Sent -> stringResource(R.string.explain_sent)
-        ExplainPhase.NeedsUpdate -> stringResource(R.string.explain_update_hearth)
-        ExplainPhase.Failed -> stringResource(R.string.explain_error)
-    }
-    if (message != null) {
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodySmall,
-            color = if (phase == ExplainPhase.NeedsUpdate || phase == ExplainPhase.Failed) {
-                MaterialTheme.colorScheme.error
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
+    Column(modifier) {
+        Button(
+            onClick = {
+                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                explain.press()
             },
-            modifier = Modifier.padding(top = 4.dp)
-        )
+            enabled = phase != ExplainPhase.Requesting,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+        ) {
+            Icon(Icons.AutoMirrored.Filled.Article, contentDescription = null)
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = stringResource(R.string.btn_explain_news),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center
+            )
+        }
+        val message = explainStatusText(phase)
+        if (message != null) {
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (phase == ExplainPhase.NeedsUpdate || phase == ExplainPhase.Failed) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.padding(top = 4.dp),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 

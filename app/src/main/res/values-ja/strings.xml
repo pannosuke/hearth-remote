@@ -77,6 +77,10 @@
     <string name="toast_subtitles_off">字幕オフ…</string>
     <string name="live_tv_title">地デジ</string>
     <string name="btn_explain_news">ニュース解説</string>
+    <string name="btn_snap_screen">📷 画面を撮影</string>
+    <string name="snap_shutter">撮影</string>
+    <string name="snap_camera_needed">カメラの許可が必要です</string>
+    <string name="snap_camera_failed">写真を撮れませんでした</string>
     <string name="explain_requesting">送信しています…</string>
     <string name="explain_sent">送りました</string>
     <string name="explain_error">送れませんでした</string>

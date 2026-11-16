@@ -131,6 +131,159 @@ class HearthExplainTest {
         }
     }
 
+    @Test
+    fun `the photo url sits under explain`() {
+        assertEquals("http://192.168.10.105:8765/api/explain/photo", explainPhotoUrl("192.168.10.105"))
+        assertEquals("http://192.168.10.105:9/api/explain/photo", explainPhotoUrl("http://192.168.10.105/", 9))
+    }
+
+    @Test
+    fun `multipart keeps the photo field and the jpeg bytes`() {
+        val jpeg = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0x01, 0x02)
+        val form = multipartPhoto(jpeg, "bound")
+        val text = form.body.toString(Charsets.ISO_8859_1)
+        assertEquals("multipart/form-data; boundary=bound", form.contentType)
+        assertTrue(text.contains("name=\"photo\""))
+        assertTrue(text.contains("filename=\"photo.jpg\""))
+        assertTrue(text.contains("Content-Type: image/jpeg"))
+        assertTrue(text.endsWith("\r\n--bound--\r\n"))
+        val start = text.indexOf("\r\n\r\n") + 4
+        val end = text.indexOf("\r\n--bound--")
+        assertTrue(text.substring(start, end).toByteArray(Charsets.ISO_8859_1).contentEquals(jpeg))
+    }
+
+    @Test
+    fun `a 200 photo upload is not retried`() {
+        val types = mutableListOf<String>()
+        val client = photoClient(types) { 200 }
+        assertEquals(ExplainOutcome.Sent, client.uploadPhoto(byteArrayOf(1, 2)))
+        assertEquals(1, types.size)
+        assertTrue(types[0].startsWith("multipart/form-data"))
+    }
+
+    @Test
+    fun `a 415 is retried once as a raw jpeg`() {
+        val types = mutableListOf<String>()
+        val client = photoClient(types) { type -> if (type.startsWith("multipart/")) 415 else 200 }
+        assertEquals(ExplainOutcome.Sent, client.uploadPhoto(byteArrayOf(9, 8, 7)))
+        assertEquals(2, types.size)
+        assertTrue(types[0].startsWith("multipart/form-data; boundary="))
+        assertEquals("image/jpeg", types[1])
+    }
+
+    @Test
+    fun `a 400 is retried once as a raw jpeg`() {
+        val types = mutableListOf<String>()
+        val client = photoClient(types) { type -> if (type.startsWith("multipart/")) 400 else 200 }
+        assertEquals(ExplainOutcome.Sent, client.uploadPhoto(byteArrayOf(3)))
+        assertEquals(2, types.size)
+        assertEquals("image/jpeg", types[1])
+    }
+
+    @Test
+    fun `a 404 photo endpoint asks for an update and is not retried`() {
+        val types = mutableListOf<String>()
+        val client = photoClient(types) { 404 }
+        assertEquals(ExplainOutcome.NeedsUpdate, client.uploadPhoto(byteArrayOf(1)))
+        assertEquals(1, types.size)
+    }
+
+    @Test
+    fun `a 500 photo upload is an error and is not retried`() {
+        val types = mutableListOf<String>()
+        val client = photoClient(types) { 500 }
+        assertEquals(ExplainOutcome.Failed, client.uploadPhoto(byteArrayOf(1)))
+        assertEquals(1, types.size)
+    }
+
+    @Test
+    fun `an empty photo is refused before the network`() {
+        val client = HearthExplain(
+            hostProvider = { "192.168.10.105" },
+            photos = PhotoTransport { throw AssertionError("sent") }
+        )
+        assertThrows(OverlayException::class.java) { client.uploadPhoto(byteArrayOf()) }
+    }
+
+    @Test
+    fun `the photo button reports sent and then clears`() = runBlocking {
+        val client = HearthExplain(
+            hostProvider = { "192.168.10.105" },
+            photos = PhotoTransport { ExplainResult(200, "{}") }
+        )
+        val controller = ExplainController(client, holdMs = 0L)
+        assertEquals(ExplainPhase.Sent, controller.uploadNow(byteArrayOf(1)))
+        assertEquals(ExplainPhase.Idle, controller.state.value)
+    }
+
+    @Test
+    fun `the real client posts the jpeg as multipart`() {
+        val jpeg = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 7, 7)
+        ServerSocket(0).use { server ->
+            var contentType = ""
+            var body = ByteArray(0)
+            val thread = Thread {
+                server.accept().use { socket ->
+                    val input = socket.getInputStream()
+                    val header = StringBuilder()
+                    val window = StringBuilder()
+                    while (true) {
+                        val b = input.read()
+                        if (b < 0) break
+                        header.append(b.toChar())
+                        window.append(b.toChar())
+                        if (window.length > 4) window.deleteCharAt(0)
+                        if (window.toString() == "\r\n\r\n") break
+                    }
+                    val length = Regex("Content-Length: (\\d+)", RegexOption.IGNORE_CASE)
+                        .find(header)?.groupValues?.get(1)?.toInt() ?: 0
+                    contentType = Regex("Content-Type: ([^\r]+)", RegexOption.IGNORE_CASE)
+                        .find(header)?.groupValues?.get(1).orEmpty()
+                    body = ByteArray(length)
+                    var read = 0
+                    while (read < length) {
+                        val n = input.read(body, read, length - read)
+                        if (n < 0) break
+                        read += n
+                    }
+                    val reply = "{}"
+                    val out = socket.getOutputStream()
+                    out.write(
+                        "HTTP/1.1 200 OK\r\nContent-Length: ${reply.length}\r\nConnection: close\r\n\r\n$reply"
+                            .toByteArray(Charsets.US_ASCII)
+                    )
+                    out.flush()
+                }
+            }
+            thread.isDaemon = true
+            thread.start()
+            val client = HearthExplain(
+                hostProvider = { "127.0.0.1" },
+                port = server.localPort
+            )
+            assertEquals(ExplainOutcome.Sent, client.uploadPhoto(jpeg))
+            thread.join(2_000)
+            assertTrue(contentType.startsWith("multipart/form-data; boundary="))
+            val text = body.toString(Charsets.ISO_8859_1)
+            assertTrue(text.contains("name=\"photo\""))
+            assertTrue(text.contains(jpeg.toString(Charsets.ISO_8859_1)))
+        }
+    }
+
+    private fun photoClient(types: MutableList<String>, codeFor: (String) -> Int): HearthExplain {
+        return HearthExplain(
+            hostProvider = { "192.168.10.105" },
+            photos = PhotoTransport { call ->
+                types += call.contentType
+                assertEquals("http://192.168.10.105:8765/api/explain/photo", call.url)
+                if (call.contentType == "image/jpeg") {
+                    assertTrue(call.body.contentEquals(byteArrayOf(9, 8, 7)) || call.body.size == 1 || call.body.size == 2)
+                }
+                ExplainResult(codeFor(call.contentType), "{}")
+            }
+        )
+    }
+
     private fun client(calls: MutableList<String>, codeFor: (String) -> Int): HearthExplain {
         return HearthExplain(
             hostProvider = { "192.168.10.105" },

@@ -76,6 +76,11 @@
     <string name="toast_subtitles_on">Subtitles on…</string>
     <string name="toast_subtitles_off">Subtitles off…</string>
     <string name="live_tv_title">Terrestrial</string>
+    <string name="btn_explain_news">Explain news</string>
+    <string name="explain_requesting">Requesting…</string>
+    <string name="explain_sent">Sent</string>
+    <string name="explain_error">Couldn\'t reach Hearth</string>
+    <string name="explain_update_hearth">Update Hearth on the TV</string>
     <string name="overlay_title">Overlays</string>
     <string name="overlay_unavailable">Overlays unavailable</string>
     <string name="overlay_wxpill">Temperature</string>
